@@ -3,6 +3,7 @@ from enum import Enum
 
 class CustomerTier(str, Enum):
     VIP = "VIP"
+    PREMIUM = "Premium"
     BUSINESS = "Business"
     STANDARD = "Standard"
 
@@ -23,6 +24,7 @@ class OrderStatus(str, Enum):
     PICKING = "Picking"
     PICKED = "Picked"
     PACKING = "Packing"
+    QC = "QC"
     QUALITY_CHECK = "Quality Check"
     READY_TO_DISPATCH = "Ready to Dispatch"
     DISPATCHED = "Dispatched"

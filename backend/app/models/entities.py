@@ -125,6 +125,7 @@ class OrderItem(Base):
     quantity_allocated: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     quantity_picked: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     quantity_dispatched: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    fulfillment_status: Mapped[str | None] = mapped_column(String, nullable=True)
 
     order: Mapped["Order"] = relationship(back_populates="items")
     product: Mapped["Product"] = relationship(back_populates="order_items")
@@ -147,6 +148,9 @@ class PickTask(Base):
         default=PickTaskStatus.PENDING,
     )
     assigned_worker: Mapped[str | None] = mapped_column(String, nullable=True)
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     order_item: Mapped["OrderItem"] = relationship(back_populates="pick_tasks")
     source_location: Mapped["Location"] = relationship(back_populates="pick_tasks")
