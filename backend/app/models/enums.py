@@ -52,6 +52,7 @@ class EventType(str, Enum):
 
 class DecisionType(str, Enum):
     ALLOCATION = "allocation"
+    REALLOCATION_APPROVAL_REQUIRED = "reallocation_approval_required"
     REORDER = "reorder"
     EXCEPTION = "exception"
     BOTTLENECK = "bottleneck"
