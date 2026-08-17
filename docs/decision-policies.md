@@ -82,3 +82,112 @@ Rationale: with the urgency group capped via `max()` rather than summed, a reali
 2. **Dispatch risk independent of deadline** — order due in 24 hours (no same-day/express, outside both deadline buckets), but `predicted dispatch risk` is true for a reason unrelated to time (e.g. packing backlog). Assert the risk points still apply and aren't zeroed out by the "far from deadline" state — proves the two signals are actually decoupled.
 3. **Missing/incomplete data doesn't crash and doesn't over- or under-score** — order with `due_at=None`, `shipping_type=None`, `order_value=None`. Assert score is a clean baseline, `risk_status` is `Unknown` rather than `Safe`, and a reason string flags the missing data rather than raising.
 4. **Threshold boundary + overdue distinction** — two orders: one scoring exactly 80 (must be Critical) and one at 79 (must be High), plus a third order already overdue by 3 hours but otherwise low-scoring — assert its `risk_status` is `Blocked`/escalate-worthy even though its priority *score* alone wouldn't put it in Critical, proving queue-ordering and breach-state don't get conflated.
+# FlowForge WMS — Exception Decision Rules (Phase 7)
+
+This document defines the precise, deterministic decision rules for handling warehouse exceptions (`ITEM_DAMAGED`, `ITEM_MISSING`, and `QC_FAILED`). Each event follows an **Exception → Decision → Resolution** lifecycle to ensure operational consistency and auditability.
+
+---
+
+## 1. ITEM_DAMAGED (Discovered During Picking)
+
+### Event Payload Fields
+* `event_type`: `"ITEM_DAMAGED"`
+* `sku_id`: integer
+* `location_id`: integer (source bin where damage was found)
+* `quantity_damaged`: integer (> 0)
+* `order_id`: integer (affected order)
+* `pick_task_id`: integer
+* `worker_id` / `operator_id`: string
+
+### Inventory Updates
+* Decrement `on_hand` and increment `damaged` in the source bin.
+* Transition the damaged quantity to **Quarantined** status (`verification_status = "Quarantined"`), ensuring it is barred from future allocation or coverage calculations.
+
+### Order Status Changes
+* If the remaining unfulfilled items can be covered by alternate bins, the order status remains unchanged or returns to `"Allocated"`.
+* If no alternate stock exists, transition the order status to `"Awaiting Stock"` or `"Backordered"`.
+
+### Alternate-Bin Search Policy
+* Query active inventory for the same SKU across non-quarantined bins (`verification_status != "Quarantined"`), prioritizing **Verified** bins.
+* If sufficient stock is found elsewhere, generate a replacement pick task.
+
+### When to Auto-Execute
+* **Condition:** Alternate verified stock exists in the warehouse to completely fulfill the damaged quantity.
+* **Action:** Automatically quarantine the damaged stock, reallocate the shortage from an alternate bin, and assign a replacement pick task.
+
+### When to Require Approval
+* **Condition:** Alternate stock exists, but it requires drawing from a lower-confidence or unverified bin location.
+* **Action:** Flag the decision as `APPROVAL_REQUIRED` and pause dispatch/picking until a warehouse supervisor approves the source bin reassignment.
+
+### When to Escalate
+* **Condition:** No alternate stock is available across any bin, and the order is tied to a **Critical** priority tier (e.g., Express shipping due within 2 hours).
+* **Action:** Escalate immediately to `ESCALATE`, flag the order risk as `"Blocked"`, and notify operations for emergency procurement or customer communication.
+
+---
+
+## 2. ITEM_MISSING (Short Pick in a Bin)
+
+### Event Payload Fields
+* `event_type`: `"ITEM_MISSING"`
+* `sku_id`: integer
+* `location_id`: integer (bin where physical count failed against system expectation)
+* `quantity_missing`: integer (> 0)
+* `order_id`: integer
+* `pick_task_id`: integer
+
+### Inventory Updates
+* Record a stock discrepancy. Mark the source bin verification status as `"Needs Count"` (`verification_status = "Needs Count"`).
+* Temporarily adjust down the system `on_hand` count for that bin to prevent ghost-inventory allocation.
+
+### Order Status Changes
+* Temporarily pause order movement (retain `"Picking"` or revert to `"Allocated"` review state).
+
+### Alternate-Bin Search Policy
+* Scan other active bins for the SKU using standard allocation hierarchy (Verified $\rightarrow$ Unverified).
+* Concurrently generate an automated cycle-count task for the discrepancy bin.
+
+### When to Auto-Execute
+* **Condition:** Alternate stock is immediately available in another bin.
+* **Action:** Reallocate the missing quantity to the alternate bin, generate a new pick task for that location, and queue the original bin for a mandatory cycle count.
+
+### When to Require Approval
+* **Condition:** The missing quantity is high ($> 5$ units) or exceeds a configured variance threshold, even if alternate stock exists.
+* **Action:** Require supervisor sign-off (`APPROVAL_REQUIRED`) before zeroing out bin inventory and shifting allocation.
+
+### When to Escalate
+* **Condition:** The bin count discrepancy recurs across multiple picks for the same SKU, or zero alternate inventory remains.
+* **Action:** Escalate to inventory control for physical audit (`ESCALATE`).
+
+---
+
+## 3. QC_FAILED (Quantity Mismatch / Quality Rejection at Packing or QC)
+
+### Event Payload Fields
+* `event_type`: `"QC_FAILED"`
+* `order_id`: integer
+* `sku_id`: integer
+* `quantity_inspected`: integer
+* `quantity_rejected`: integer
+* `failure_reason`: string (e.g., `"Quantity Mismatch"`, `"Defective Packaging"`)
+
+### Inventory Updates
+* Move rejected units into quarantine or hold status if physical items are retained.
+* Release any erroneous over-allocations back to general available inventory if the mismatch was an administrative count error.
+
+### Order Status Changes
+* Immediately halt dispatch progression. Transition order status from `"QC"` to `"Exception Review"` or `"Rework Required"`.
+
+### Alternate-Bin Search Policy
+* Not applicable for direct quality failures unless a full lot replacement is required. If replacement is needed, execute standard allocation search across verified bins.
+
+### When to Auto-Execute
+* **Condition:** The failure is a minor, administrative quantity mismatch where correct inventory is physically present at the packing station.
+* **Action:** Automatically adjust line items, log the discrepancy, and re-queue the order for QC review.
+
+### When to Require Approval
+* **Condition:** Rejected items require returning to inventory or scrapping, and the order requires partial split fulfillment (dispatching passing items while holding rejected ones).
+* **Action:** Require supervisor approval (`APPROVAL_REQUIRED`) to split the order.
+
+### When to Escalate
+* **Condition:** Whole batch failures or critical safety defects detected during QC.
+* **Action:** Escalate (`ESCALATE`), freeze all orders containing items from the affected lot/SKU, and trigger a quality hold audit.
