@@ -5,8 +5,9 @@ import { Dashboard } from './pages/Dashboard';
 import { Orders } from './pages/Orders';
 import { OrderDetail } from './pages/OrderDetail';
 import { Inventory } from './pages/Inventory';
-import { Fulfillment } from './pages/Fulfillment';
+import { FulfillmentBoard } from './pages/FulfillmentBoard';
 import { Exceptions } from './pages/Exceptions';
+import { ScenarioSimulator } from './pages/ScenarioSimulator';
 
 function App() {
   return (
@@ -18,8 +19,9 @@ function App() {
             <Route path="/orders" element={<Orders />} />
             <Route path="/orders/:orderId" element={<OrderDetail />} />
             <Route path="/inventory" element={<Inventory />} />
-            <Route path="/fulfillment" element={<Fulfillment />} />
+            <Route path="/fulfillment" element={<FulfillmentBoard />} />
             <Route path="/exceptions" element={<Exceptions />} />
+            <Route path="/simulator" element={<ScenarioSimulator />} />
           </Routes>
         </AppShell>
       </BrowserRouter>

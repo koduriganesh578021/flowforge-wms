@@ -28,6 +28,8 @@ def process_event(event: Mapping[str, Any] | None, db: Session) -> dict[str, Any
         result = _handle_item_damaged(payload, db)
     elif event_type == EventType.ITEM_MISSING:
         result = _handle_item_missing(payload, db)
+    elif event_type == EventType.INVENTORY_DISCREPANCY:
+        result = _handle_inventory_discrepancy(payload, db)
     elif event_type == EventType.QC_FAILED:
         result = _handle_qc_failed(payload, db)
     else:
@@ -147,6 +149,57 @@ def _handle_item_damaged(event: Mapping[str, Any], db: Session) -> dict[str, Any
         "order_status": order.status if order is not None else order_status,
         "explanation": explanation,
         "order_id": order_id,
+        "sku_id": sku_id,
+        "location_id": location_id,
+    }
+
+
+def _handle_inventory_discrepancy(event: Mapping[str, Any], db: Session) -> dict[str, Any]:
+    sku_id = _coerce_int(event.get("sku_id"))
+    location_id = _coerce_int(event.get("location_id"))
+    new_quantity = _coerce_int(event.get("new_quantity"))
+    inventory = _get_inventory(db, sku_id, location_id)
+    if inventory is None:
+        raise ValueError("Inventory record not found")
+    if new_quantity is None or new_quantity < 0:
+        raise ValueError("new_quantity must be zero or greater")
+
+    before_on_hand = inventory.on_hand
+    before_verification_status = inventory.verification_status
+    event_record = _create_event_record(
+        db,
+        event_type=EventType.INVENTORY_DISCREPANCY,
+        payload=event,
+        order_id=None,
+        sku_id=sku_id,
+        location_id=location_id,
+        quantity=abs(new_quantity - before_on_hand),
+        reported_by=str(event.get("reported_by") or "simulator"),
+    )
+    inventory.on_hand = new_quantity
+    inventory.verification_status = InventoryVerificationStatus.NEEDS_COUNT
+    explanation = (
+        f"Cycle count updated SKU {sku_id} at bin {location_id} from {before_on_hand} to {new_quantity}. "
+        "The bin was marked Needs Count and requires inventory-control review."
+    )
+    decision = _create_decision_record(
+        db,
+        event_record=event_record,
+        order_id=None,
+        sku_id=sku_id,
+        decision_type=DecisionType.EXCEPTION,
+        decision_mode=DecisionMode.APPROVAL_REQUIRED,
+        status=DecisionStatus.PENDING,
+        explanation=explanation,
+        before_state={"on_hand": before_on_hand, "verification_status": before_verification_status.value},
+        after_state={"on_hand": new_quantity, "verification_status": InventoryVerificationStatus.NEEDS_COUNT.value},
+    )
+    return {
+        "event_id": event_record.id,
+        "decision_id": decision.id,
+        "event_type": EventType.INVENTORY_DISCREPANCY.value,
+        "decision_mode": decision.decision_mode.name,
+        "explanation": explanation,
         "sku_id": sku_id,
         "location_id": location_id,
     }

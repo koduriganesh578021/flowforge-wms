@@ -50,8 +50,19 @@ From the repository root:
 pytest backend/tests -q
 ```
 
+## Seed demo data
+
+From the `backend` folder, load the documented base scenario and then add the
+three sample exception events shown on the Exceptions page:
+
+```bash
+python seed.py
+python db/seed_exceptions.py
+```
+
+The exception seed is idempotent and can be rerun safely.
+
 ## Notes
 
 - SQLite file path: `backend/flowforge.db`
 - Tables are created automatically at startup for this local MVP.
-- No seed data is included.

@@ -1,5 +1,5 @@
 import { apiClient } from './client';
-import type { Order, OrderDetail, PriorityResponse, AllocationResponse } from '../types';
+import type { Order, OrderDetail, PriorityResponse, AllocationResponse, OrderStatus } from '../types';
 
 export const ordersApi = {
   // GET /orders
@@ -24,5 +24,43 @@ export const ordersApi = {
   allocateOrder: async (orderId: number): Promise<AllocationResponse> => {
     const response = await apiClient.post<AllocationResponse>(`/orders/${orderId}/allocate`);
     return response.data;
+  },
+
+  // POST /orders/{order_id}/transition
+  transitionOrder: async (orderId: number, newStatus: OrderStatus, actor?: string): Promise<OrderDetail> => {
+    const response = await apiClient.post<OrderDetail>(`/orders/${orderId}/transition`, {
+      new_status: newStatus,
+      actor
+    });
+    return response.data;
+  },
+
+  // Convenience transition methods
+  startPicking: async (orderId: number): Promise<OrderDetail> => {
+    return ordersApi.transitionOrder(orderId, 'Picking');
+  },
+
+  confirmPicked: async (orderId: number): Promise<OrderDetail> => {
+    return ordersApi.transitionOrder(orderId, 'Picked');
+  },
+
+  confirmPacked: async (orderId: number): Promise<OrderDetail> => {
+    return ordersApi.transitionOrder(orderId, 'Packing');
+  },
+
+  sendToQC: async (orderId: number): Promise<OrderDetail> => {
+    return ordersApi.transitionOrder(orderId, 'Quality Check');
+  },
+
+  qcPass: async (orderId: number): Promise<OrderDetail> => {
+    return ordersApi.transitionOrder(orderId, 'Ready to Dispatch');
+  },
+
+  qcFail: async (orderId: number): Promise<OrderDetail> => {
+    return ordersApi.transitionOrder(orderId, 'Rework Required');
+  },
+
+  dispatchOrder: async (orderId: number): Promise<OrderDetail> => {
+    return ordersApi.transitionOrder(orderId, 'Dispatched');
   },
 };

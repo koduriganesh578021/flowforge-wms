@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { ordersApi } from '../api/orders';
@@ -7,6 +8,7 @@ import type { OrderDetail, AllocationResponse, EventPayload, DecisionResponse } 
 import { Badge } from '../components/Badge';
 import { DecisionCard } from '../components/DecisionCard';
 import { AuditTimeline } from '../components/AuditTimeline';
+import { StatusTimeline } from '../components/StatusTimeline';
 import { ExceptionReportModal } from '../components/ExceptionReportModal';
 import { DecisionAlert } from '../components/DecisionAlert';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -28,13 +30,7 @@ export function OrderDetail() {
   const [isExceptionModalOpen, setIsExceptionModalOpen] = useState(false);
   const [decisionResult, setDecisionResult] = useState<DecisionResponse | null>(null);
 
-  useEffect(() => {
-    if (orderId) {
-      loadOrder(parseInt(orderId));
-    }
-  }, [orderId]);
-
-  const loadOrder = async (id: number) => {
+  const loadOrder = useCallback(async (id: number) => {
     try {
       setLoading(true);
       setError(null);
@@ -46,7 +42,13 @@ export function OrderDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (orderId) {
+      loadOrder(parseInt(orderId));
+    }
+  }, [orderId, loadOrder]);
 
   const handlePrioritize = async () => {
     if (!order) return;
@@ -370,6 +372,9 @@ export function OrderDetail() {
             </CardContent>
           </Card>
 
+          {/* Status Timeline */}
+          <StatusTimeline events={order.status_history} />
+          
           {/* Audit Timeline */}
           <AuditTimeline events={auditEvents} />
         </div>

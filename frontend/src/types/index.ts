@@ -1,12 +1,33 @@
+export type OrderStatus = 
+  | "Created" 
+  | "Prioritized" 
+  | "Awaiting Allocation" 
+  | "Partially Allocated" 
+  | "Allocated" 
+  | "Ready to Pick" 
+  | "Picking" 
+  | "Picked" 
+  | "Packing" 
+  | "Quality Check" 
+  | "Ready to Dispatch" 
+  | "Dispatched" 
+  | "Awaiting Stock" 
+  | "Backordered" 
+  | "Exception Review" 
+  | "Rework Required" 
+  | "Cancelled";
+
 export interface Order {
   id: number;
   order_code: string;
   customer_name: string;
-  status: string;
+  status: OrderStatus;
   priority_score: number | null;
   priority_label: string | null;
   risk_status: string | null;
   due_at: string | null;
+  updated_at?: string;
+  stage_entered_at?: string;
 }
 
 export interface OrderItem {
@@ -42,6 +63,7 @@ export interface OrderDetail extends Order {
   items: OrderItem[];
   pick_tasks: PickTask[];
   priority_explanation: PriorityExplanation | null;
+  status_history?: StatusTimelineEvent[];
 }
 
 export interface PriorityResponse {
@@ -171,4 +193,134 @@ export interface ExceptionEvent {
   explanation: string;
   timestamp: string;
   status: string; // e.g., 'Pending', 'Resolved', 'Escalated'
+}
+
+// Valid transitions for each status
+export const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  "Created": ["Prioritized"],
+  "Prioritized": ["Awaiting Allocation"],
+  "Awaiting Allocation": ["Partially Allocated", "Allocated"],
+  "Partially Allocated": ["Allocated", "Awaiting Stock"],
+  "Allocated": ["Ready to Pick"],
+  "Ready to Pick": ["Picking"],
+  "Picking": ["Picked"],
+  "Picked": ["Packing"],
+  "Packing": ["Quality Check"],
+  "Quality Check": ["Ready to Dispatch", "Rework Required"],
+  "Ready to Dispatch": ["Dispatched"],
+  "Dispatched": [], // Terminal state
+  "Awaiting Stock": ["Backordered", "Allocated"],
+  "Backordered": ["Allocated", "Cancelled"],
+  "Exception Review": ["Rework Required", "Cancelled"],
+  "Rework Required": ["Ready to Pick", "Cancelled"],
+  "Cancelled": [], // Terminal state
+};
+
+// UI actions mapping - what buttons to show for each status
+export interface StatusAction {
+  label: string;
+  action: string;
+  variant: 'primary' | 'secondary' | 'danger';
+}
+
+export const STATUS_ACTIONS: Record<OrderStatus, StatusAction[]> = {
+  "Ready to Pick": [
+    { label: "Start Picking", action: "start_picking", variant: "primary" as const }
+  ],
+  "Picking": [
+    { label: "Confirm Picked", action: "confirm_picked", variant: "primary" as const }
+  ],
+  "Picked": [
+    { label: "Confirm Packed", action: "confirm_packed", variant: "primary" as const }
+  ],
+  "Packing": [
+    { label: "Send to QC", action: "send_to_qc", variant: "primary" as const }
+  ],
+  "Quality Check": [
+    { label: "QC Pass", action: "qc_pass", variant: "primary" as const },
+    { label: "QC Fail", action: "qc_fail", variant: "danger" as const }
+  ],
+  "Ready to Dispatch": [
+    { label: "Dispatch", action: "dispatch", variant: "primary" as const }
+  ],
+  // Other statuses have no actions or will be handled separately
+  "Created": [],
+  "Prioritized": [],
+  "Awaiting Allocation": [],
+  "Partially Allocated": [],
+  "Allocated": [],
+  "Dispatched": [],
+  "Awaiting Stock": [],
+  "Backordered": [],
+  "Exception Review": [],
+  "Rework Required": [],
+  "Cancelled": [],
+};
+
+// Status timeline event type
+export interface StatusTimelineEvent {
+  status: OrderStatus;
+  timestamp: string;
+  actor?: string;
+}
+
+// Fulfillment board column configuration
+export interface FulfillmentColumn {
+  id: string;
+  title: string;
+  statuses: OrderStatus[];
+}
+
+// Fulfillment board columns
+export const FULFILLMENT_COLUMNS: FulfillmentColumn[] = [
+  {
+    id: "ready_to_pick",
+    title: "Ready to Pick",
+    statuses: ["Ready to Pick"]
+  },
+  {
+    id: "picking",
+    title: "Picking",
+    statuses: ["Picking"]
+  },
+  {
+    id: "packed",
+    title: "Packed",
+    statuses: ["Picked", "Packing"]
+  },
+  {
+    id: "quality_check",
+    title: "Quality Check",
+    statuses: ["Quality Check"]
+  },
+  {
+    id: "ready_to_dispatch",
+    title: "Ready to Dispatch",
+    statuses: ["Ready to Dispatch"]
+  },
+  {
+    id: "dispatched",
+    title: "Dispatched",
+    statuses: ["Dispatched"]
+  }
+];
+
+// Dashboard analytics types
+export interface DashboardSummary {
+  pending_orders: number;
+  critical_orders: number;
+  low_stock_skus: number;
+  open_exceptions: number;
+  average_fulfillment_time?: number; // in minutes
+  top_bottlenecks: Bottleneck[];
+}
+
+export interface Bottleneck {
+  stage: string;
+  queue_size: number;
+  average_wait_minutes: number;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  recommendation: string;
+  capacity_orders_per_hour?: number;
+  incoming_rate_orders_per_hour?: number;
 }

@@ -72,6 +72,17 @@ class PrioritizeResponse(BaseModel):
     decision_id: int
 
 
+class TransitionRequest(BaseModel):
+    new_status: OrderStatus
+    actor: str = "system"
+
+
+class WorkflowOrderResponse(BaseModel):
+    id: int
+    status: OrderStatus
+    stage_entered_at: datetime | None
+
+
 class BinAllocationResponse(ORMResponse):
     location_id: int
     location_code: str

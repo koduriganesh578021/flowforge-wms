@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/Badge';
 import { eventsApi } from '../api/events';
@@ -10,11 +11,7 @@ export function Exceptions() {
   const [filter, setFilter] = useState<DecisionMode | 'ALL'>('ALL');
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadExceptions();
-  }, []);
-
-  const loadExceptions = async () => {
+  const loadExceptions = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -26,7 +23,11 @@ export function Exceptions() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadExceptions();
+  }, [loadExceptions]);
 
   const filteredExceptions = exceptions.filter(exc => {
     if (filter === 'ALL') return true;

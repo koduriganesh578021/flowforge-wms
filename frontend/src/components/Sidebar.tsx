@@ -1,11 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils';
-import { 
-  LayoutDashboard, 
-  Package, 
-  Boxes, 
-  Truck, 
-  AlertTriangle 
+import {
+  LayoutDashboard,
+  Package,
+  Boxes,
+  Truck,
+  AlertTriangle,
+  Cpu
 } from 'lucide-react';
 
 const navItems = [
@@ -14,6 +15,7 @@ const navItems = [
   { path: '/inventory', label: 'Inventory', icon: Boxes, shortcut: 'G then I' },
   { path: '/fulfillment', label: 'Fulfillment', icon: Truck, shortcut: 'G then F' },
   { path: '/exceptions', label: 'Exceptions', icon: AlertTriangle, shortcut: 'G then E' },
+  { path: '/simulator', label: 'Simulator', icon: Cpu, shortcut: 'G then S' },
 ];
 
 export function Sidebar() {
