@@ -67,6 +67,7 @@ def prioritize_order(order_id: int, db: Session = Depends(get_db)) -> Prioritize
     )
     db.add(decision)
     db.commit()
+    db.refresh(order)
     db.refresh(decision)
     return PrioritizeResponse(order_id=order.id, score=assessment.score, label=assessment.label,
                               risk_flag=assessment.risk_flag, reasons=assessment.reasons, decision_id=decision.id)

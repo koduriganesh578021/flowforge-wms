@@ -34,11 +34,9 @@ export interface OrderDetail extends Order {
 
 export interface PriorityResponse {
   order_id: number;
-  priority: {
-    score: number;
-    label: string;
-    reasons: string[];
-  };
+  priority_score: number | null;
+  priority_label: string | null;
+  reasons: string[];
 }
 
 export interface AllocationLine {
@@ -56,11 +54,9 @@ export interface AllocationOrder {
 
 export interface AllocationResponse {
   order_id: number;
-  priority: {
-    score: number;
-    label: string;
-    reasons: string[];
-  };
+  priority_score: number | null;
+  priority_label: string | null;
+  reasons: string[];
   order: AllocationOrder;
 }
 

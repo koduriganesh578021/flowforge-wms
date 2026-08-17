@@ -7,6 +7,7 @@ import { DecisionCard } from '../components/DecisionCard';
 import { AuditTimeline } from '../components/AuditTimeline';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { ArrowLeft, Play, CheckCircle } from 'lucide-react';
+import { formatNumber, toNumber } from '../lib/utils';
 
 export function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -15,7 +16,10 @@ export function OrderDetail() {
   const [allocationResult, setAllocationResult] = useState<AllocationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<'prioritize' | 'allocate' | null>(null);
+  const [isPrioritizing, setIsPrioritizing] = useState(false);
+  const [isAllocating, setIsAllocating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [auditEvents, setAuditEvents] = useState<string[]>([]);
 
   useEffect(() => {
     if (orderId) {
@@ -41,17 +45,32 @@ export function OrderDetail() {
     if (!order) return;
     
     try {
-      setActionLoading('prioritize');
+      setIsPrioritizing(true);
+      setActionError(null);
       const result = await ordersApi.prioritizeOrder(order.id);
-      // Reload order to get updated priority
-      await loadOrder(order.id);
-      // TODO: Display priority result in UI
+      
+      // Update order with new priority data using flat API response fields
+      if (result) {
+        setOrder(prev => prev ? {
+          ...prev,
+          priority_score: result.priority_score ?? prev.priority_score,
+          priority_label: result.priority_label ?? prev.priority_label
+        } : null);
+        
+        // Extract and save the reasons for the audit timeline using flat field
+        const reasons = result.reasons || [];
+        if (Array.isArray(reasons)) {
+          setAuditEvents(reasons);
+        }
+      }
+      
       console.log('Priority result:', result);
     } catch (err) {
       console.error('Error prioritizing order:', err);
-      alert('Failed to run priority check. Please try again.');
+      setActionError('Failed to run priority check. Please try again.');
+      setTimeout(() => setActionError(null), 5000); // Clear error after 5 seconds
     } finally {
-      setActionLoading(null);
+      setIsPrioritizing(false);
     }
   };
 
@@ -59,16 +78,23 @@ export function OrderDetail() {
     if (!order) return;
     
     try {
-      setActionLoading('allocate');
+      setIsAllocating(true);
+      setActionError(null);
       const result = await ordersApi.allocateOrder(order.id);
+      
+      // Update local state with API response
       setAllocationResult(result);
+      
       // Reload order to get updated allocation state
       await loadOrder(order.id);
+      
+      console.log('Allocation result:', result);
     } catch (err) {
       console.error('Error allocating order:', err);
-      alert('Failed to run allocation. Please try again.');
+      setActionError('Failed to run allocation. Please try again.');
+      setTimeout(() => setActionError(null), 5000); // Clear error after 5 seconds
     } finally {
-      setActionLoading(null);
+      setIsAllocating(false);
     }
   };
 
@@ -116,6 +142,15 @@ export function OrderDetail() {
         </div>
       </div>
 
+      {/* Action Error Alert */}
+      {actionError && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="p-4">
+            <p className="text-sm text-red-800">{actionError}</p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
@@ -146,7 +181,7 @@ export function OrderDetail() {
                 </div>
                 <div>
                   <p className="text-zinc-600 mb-1">Order Value</p>
-                  <p className="font-mono text-sm">₹{order.order_value.toFixed(2)}</p>
+                  <p className="font-mono text-sm">₹{formatNumber(order.order_value, 2)}</p>
                 </div>
                 <div>
                   <p className="text-zinc-600 mb-1">Risk Status</p>
@@ -204,23 +239,23 @@ export function OrderDetail() {
                           <span className="font-mono text-sm">{item.sku_id}</span>
                         </td>
                         <td className="p-2">
-                          <span className="font-mono text-sm">{item.quantity_requested}</span>
+                          <span className="font-mono text-sm">{toNumber(item.quantity_requested)}</span>
                         </td>
                         <td className="p-2">
                           <span className="font-mono text-sm text-emerald-600">
-                            {item.quantity_allocated}
+                            {toNumber(item.quantity_allocated)}
                           </span>
                         </td>
                         <td className="p-2">
                           <span className="font-mono text-sm text-red-600">
-                            {item.quantity_requested - item.quantity_dispatched}
+                            {toNumber(item.quantity_requested) - toNumber(item.quantity_allocated)}
                           </span>
                         </td>
                         <td className="p-2">
-                          <span className="font-mono text-sm">{item.quantity_picked}</span>
+                          <span className="font-mono text-sm">{toNumber(item.quantity_picked)}</span>
                         </td>
                         <td className="p-2">
-                          <span className="font-mono text-sm">{item.quantity_dispatched}</span>
+                          <span className="font-mono text-sm">{toNumber(item.quantity_dispatched)}</span>
                         </td>
                       </tr>
                     ))}
@@ -248,19 +283,19 @@ export function OrderDetail() {
             <CardContent className="space-y-3">
               <button
                 onClick={handlePrioritize}
-                disabled={actionLoading === 'prioritize'}
+                disabled={isPrioritizing}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Play className="w-4 h-4" />
-                {actionLoading === 'prioritize' ? 'Running...' : 'Run Priority Check'}
+                {isPrioritizing ? 'Running...' : 'Run Priority Check'}
               </button>
               <button
                 onClick={handleAllocate}
-                disabled={actionLoading === 'allocate'}
+                disabled={isAllocating}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCircle className="w-4 h-4" />
-                {actionLoading === 'allocate' ? 'Running...' : 'Run Allocation'}
+                {isAllocating ? 'Running...' : 'Run Allocation'}
               </button>
             </CardContent>
           </Card>
@@ -273,13 +308,13 @@ export function OrderDetail() {
             <CardContent>
               <div className="text-center">
                 <p className="text-4xl font-bold font-mono text-zinc-900">
-                  {order.priority_score ?? '—'}
+                  {formatNumber(order.priority_score, 0)}
                 </p>
                 {order.priority_label && (
                   <Badge 
                     variant={
-                      (order.priority_score ?? 0) >= 80 ? 'critical' : 
-                      (order.priority_score ?? 0) >= 60 ? 'warning' : 'neutral'
+                      toNumber(order.priority_score) >= 80 ? 'critical' : 
+                      toNumber(order.priority_score) >= 60 ? 'warning' : 'neutral'
                     }
                     className="mt-2"
                   >
@@ -291,7 +326,7 @@ export function OrderDetail() {
           </Card>
 
           {/* Audit Timeline */}
-          <AuditTimeline />
+          <AuditTimeline events={auditEvents} />
         </div>
       </div>
     </div>
