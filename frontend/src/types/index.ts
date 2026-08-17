@@ -126,3 +126,49 @@ export interface InventoryItem {
   data_quality_issue: string | null;
   decision_id: number | null;
 }
+
+// Exception and event payload types. These are type-only exports and must be
+// imported with `import type` so Vite does not look for runtime JS exports.
+export type EventType = 'ITEM_DAMAGED' | 'ITEM_MISSING' | 'QC_FAILED';
+
+export interface EventPayload {
+  event_type: EventType;
+  sku_id: number;
+  quantity: number;
+  location_id?: number;
+  order_id?: number;
+  notes?: string;
+  failure_reason?: string; // For QC_FAILED
+}
+
+export type DecisionMode = 'AUTO_EXECUTED' | 'APPROVAL_REQUIRED' | 'ESCALATE';
+
+export interface DecisionResponse {
+  decision_id: number;
+  decision_mode: DecisionMode;
+  explanation: string;
+  event_type: EventType;
+  timestamp: string;
+  // Additional fields based on decision
+  alternate_bin_suggestion?: {
+    location_id: number;
+    location_code: string;
+    quantity_available: number;
+  };
+  cycle_count_task_id?: number;
+  replacement_pick_task_id?: number;
+}
+
+export interface ExceptionEvent {
+  id: number;
+  event_type: EventType;
+  sku_id: number;
+  quantity: number;
+  location_id?: number;
+  order_id?: number;
+  notes?: string;
+  decision_mode: DecisionMode;
+  explanation: string;
+  timestamp: string;
+  status: string; // e.g., 'Pending', 'Resolved', 'Escalated'
+}

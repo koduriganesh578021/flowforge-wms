@@ -1,21 +1,27 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 :root {
-  /* Enforcing the Dark Industrial Theme as default */
-  --background: 240 10% 3.9%;
-  --foreground: 0 0% 98%;
-  --border: 240 3.7% 15.9%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 64.9%;
+  /* Industrial Console Theme - light background for high-trust operations */
+  --background: 240 10% 98%;
+  --foreground: 240 10% 9%;
+  --border: 240 3.7% 86%;
+  --muted: 240 3.7% 96%;
+  --muted-foreground: 240 5% 46%;
 }
 
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   margin: 0;
-  font-family: Inter, system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Operational identifiers - use monospace for IDs, SKUs, quantities, bin codes, timestamps */
+.font-mono {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
 }
 
 * {

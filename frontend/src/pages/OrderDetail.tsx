@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { ordersApi } from '../api/orders';
-import type { OrderDetail, AllocationResponse } from '../types';
+import { eventsApi } from '../api/events';
+import type { OrderDetail, AllocationResponse, EventPayload, DecisionResponse } from '../types';
 import { Badge } from '../components/Badge';
 import { DecisionCard } from '../components/DecisionCard';
 import { AuditTimeline } from '../components/AuditTimeline';
+import { ExceptionReportModal } from '../components/ExceptionReportModal';
+import { DecisionAlert } from '../components/DecisionAlert';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ArrowLeft, Play, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Play, CheckCircle, AlertTriangle } from 'lucide-react';
 import { formatPriorityScore, toNumber } from '../lib/utils';
 
 export function OrderDetail() {
@@ -22,6 +25,8 @@ export function OrderDetail() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [priorityRequired, setPriorityRequired] = useState(false);
   const [auditEvents, setAuditEvents] = useState<string[]>([]);
+  const [isExceptionModalOpen, setIsExceptionModalOpen] = useState(false);
+  const [decisionResult, setDecisionResult] = useState<DecisionResponse | null>(null);
 
   useEffect(() => {
     if (orderId) {
@@ -109,6 +114,22 @@ export function OrderDetail() {
     }
   };
 
+  const handleExceptionSubmit = async (payload: EventPayload) => {
+    try {
+      const result = await eventsApi.submitEvent(payload);
+      setDecisionResult(result);
+      // Reload order to get updated state
+      if (order) {
+        await loadOrder(order.id);
+      }
+    } catch (err) {
+      console.error('Error submitting exception:', err);
+      setActionError('Failed to submit exception report. Please try again.');
+      setTimeout(() => setActionError(null), 5000);
+      throw err;
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
@@ -170,6 +191,16 @@ export function OrderDetail() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Decision Result Alert */}
+      {decisionResult && (
+        <DecisionAlert
+          decisionMode={decisionResult.decision_mode}
+          explanation={decisionResult.explanation}
+          alternateBinSuggestion={decisionResult.alternate_bin_suggestion}
+          onClose={() => setDecisionResult(null)}
+        />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -307,6 +338,13 @@ export function OrderDetail() {
                 <CheckCircle className="w-4 h-4" />
                 {isAllocating ? 'Running...' : 'Run Allocation'}
               </button>
+              <button
+                onClick={() => setIsExceptionModalOpen(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors"
+              >
+                <AlertTriangle className="w-4 h-4" />
+                Report Issue
+              </button>
             </CardContent>
           </Card>
 
@@ -336,6 +374,14 @@ export function OrderDetail() {
           <AuditTimeline events={auditEvents} />
         </div>
       </div>
+
+      {/* Exception Report Modal */}
+      <ExceptionReportModal
+        isOpen={isExceptionModalOpen}
+        onClose={() => setIsExceptionModalOpen(false)}
+        onSubmit={handleExceptionSubmit}
+        defaultOrderId={order?.id}
+      />
     </div>
   );
 }
