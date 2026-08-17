@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 import { ordersApi } from '../api/orders';
 import type { OrderDetail, AllocationResponse } from '../types';
 import { Badge } from '../components/Badge';
@@ -7,7 +8,7 @@ import { DecisionCard } from '../components/DecisionCard';
 import { AuditTimeline } from '../components/AuditTimeline';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { ArrowLeft, Play, CheckCircle } from 'lucide-react';
-import { formatNumber, toNumber } from '../lib/utils';
+import { formatPriorityScore, toNumber } from '../lib/utils';
 
 export function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -19,6 +20,7 @@ export function OrderDetail() {
   const [isPrioritizing, setIsPrioritizing] = useState(false);
   const [isAllocating, setIsAllocating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [priorityRequired, setPriorityRequired] = useState(false);
   const [auditEvents, setAuditEvents] = useState<string[]>([]);
 
   useEffect(() => {
@@ -49,19 +51,22 @@ export function OrderDetail() {
       setActionError(null);
       const result = await ordersApi.prioritizeOrder(order.id);
       
-      // Update order with new priority data using flat API response fields
       if (result) {
         setOrder(prev => prev ? {
           ...prev,
-          priority_score: result.priority_score ?? prev.priority_score,
-          priority_label: result.priority_label ?? prev.priority_label
+          priority_score: result.score,
+          priority_label: result.label,
+          risk_status: result.risk_flag,
+          priority_explanation: {
+            score: result.score,
+            label: result.label,
+            risk_flag: result.risk_flag,
+            reasons: result.reasons,
+          },
         } : null);
-        
-        // Extract and save the reasons for the audit timeline using flat field
-        const reasons = result.reasons || [];
-        if (Array.isArray(reasons)) {
-          setAuditEvents(reasons);
-        }
+        setAuditEvents(result.reasons);
+        setPriorityRequired(false);
+        await loadOrder(order.id);
       }
       
       console.log('Priority result:', result);
@@ -90,6 +95,12 @@ export function OrderDetail() {
       
       console.log('Allocation result:', result);
     } catch (err) {
+      if (isAxiosError(err) && err.response?.status === 409 &&
+          err.response.data?.detail === 'Priority must be calculated before inventory allocation.') {
+        setPriorityRequired(true);
+        setActionError('Priority calculation required before inventory allocation.');
+        return;
+      }
       console.error('Error allocating order:', err);
       setActionError('Failed to run allocation. Please try again.');
       setTimeout(() => setActionError(null), 5000); // Clear error after 5 seconds
@@ -138,7 +149,7 @@ export function OrderDetail() {
         </button>
         <div>
           <h1 className="text-2xl font-bold text-zinc-900 font-mono">{order.order_code}</h1>
-          <p className="text-sm text-zinc-600 mt-1">{order.customer_name} · {order.customer_tier}</p>
+          <p className="text-sm text-zinc-600 mt-1">{order.customer_name}</p>
         </div>
       </div>
 
@@ -147,6 +158,16 @@ export function OrderDetail() {
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-4">
             <p className="text-sm text-red-800">{actionError}</p>
+            {priorityRequired && (
+              <button
+                onClick={handlePrioritize}
+                disabled={isPrioritizing}
+                className="mt-3 inline-flex items-center gap-2 px-3 py-2 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50"
+              >
+                <Play className="w-4 h-4" />
+                {isPrioritizing ? 'Running...' : 'Run Priority Check'}
+              </button>
+            )}
           </CardContent>
         </Card>
       )}
@@ -166,22 +187,10 @@ export function OrderDetail() {
                   <Badge variant="active">{order.status}</Badge>
                 </div>
                 <div>
-                  <p className="text-zinc-600 mb-1">Shipping Type</p>
-                  <p className="font-medium">{order.shipping_type}</p>
-                </div>
-                <div>
-                  <p className="text-zinc-600 mb-1">Created</p>
-                  <p className="font-mono text-xs">{formatDate(order.created_at)}</p>
-                </div>
-                <div>
                   <p className="text-zinc-600 mb-1">Due Date</p>
                   <p className="font-mono text-xs">
                     {order.due_at ? formatDate(order.due_at) : 'Not set'}
                   </p>
-                </div>
-                <div>
-                  <p className="text-zinc-600 mb-1">Order Value</p>
-                  <p className="font-mono text-sm">₹{formatNumber(order.order_value, 2)}</p>
                 </div>
                 <div>
                   <p className="text-zinc-600 mb-1">Risk Status</p>
@@ -269,6 +278,7 @@ export function OrderDetail() {
           {allocationResult && (
             <DecisionCard 
               allocation={allocationResult}
+              priority={order.priority_explanation}
             />
           )}
         </div>
@@ -308,14 +318,11 @@ export function OrderDetail() {
             <CardContent>
               <div className="text-center">
                 <p className="text-4xl font-bold font-mono text-zinc-900">
-                  {formatNumber(order.priority_score, 0)}
+                  {formatPriorityScore(order.priority_score)}
                 </p>
-                {order.priority_label && (
+                {order.priority_label && order.priority_score !== null && (
                   <Badge 
-                    variant={
-                      toNumber(order.priority_score) >= 80 ? 'critical' : 
-                      toNumber(order.priority_score) >= 60 ? 'warning' : 'neutral'
-                    }
+                    variant={order.priority_score >= 80 ? 'critical' : order.priority_score >= 60 ? 'warning' : 'neutral'}
                     className="mt-2"
                   >
                     {order.priority_label}

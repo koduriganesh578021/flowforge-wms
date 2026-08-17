@@ -140,7 +140,6 @@ export function Orders() {
                     <td className="p-3">
                       <div>
                         <div className="text-sm text-zinc-900">{order.customer_name}</div>
-                        <div className="text-xs text-zinc-500">{order.customer_tier}</div>
                       </div>
                     </td>
                     <td className="p-3">

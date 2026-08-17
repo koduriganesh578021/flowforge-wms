@@ -78,6 +78,11 @@ def allocate_order(order_id: int, db: Session = Depends(get_db)) -> AllocateResp
     order = _get_order(db, order_id)
     if order.status not in ELIGIBLE_STATUSES:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Order is not eligible for allocation")
+    if order.priority_score is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Priority must be calculated before inventory allocation.",
+        )
     # ``get`` starts a read transaction; finish it before the engine owns the allocation transaction.
     db.rollback()
     result = allocate_eligible_orders(db)

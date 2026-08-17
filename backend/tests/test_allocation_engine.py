@@ -55,7 +55,7 @@ def test_full_allocation_from_one_verified_bin(session_factory):
     session = session_factory(); setup_catalog(session)
     _, item = add_order(session, 1, 1, 5); add_stock(session, 1, 1, 1, 5); session.commit()
     result = allocate_eligible_orders(session)
-    assert result.orders[0].lines[0].line_status == "Fulfilled"
+    assert result.orders[0].lines[0].line_status == "Allocated"
     assert item.quantity_allocated == 5
     assert result.orders[0].lines[0].source_bins[0].location_code == "A-01"
 
@@ -78,7 +78,7 @@ def test_zero_stock_leaves_order_unchanged_and_reports_shortage(session_factory)
     order, item = add_order(session, 1, 1, 5); add_stock(session, 1, 1, 1, 0); session.commit()
     result = allocate_eligible_orders(session)
     assert item.quantity_allocated == 0 and order.status == OrderStatus.CREATED
-    assert result.orders[0].lines[0].line_status == "Unallocated"
+    assert result.orders[0].lines[0].line_status == "Backordered"
     assert result.unresolved_shortages[0].total_unfulfilled_across_orders == 5
 
 
@@ -126,6 +126,7 @@ def test_multi_line_order_allocates_each_sku_independently(session_factory):
     add_stock(session, 1, 1, 1, 4); add_stock(session, 2, 2, 2, 1); session.commit()
     result = allocate_eligible_orders(session)
     assert (first.quantity_allocated, second.quantity_allocated, order.status) == (4, 1, OrderStatus.PARTIALLY_ALLOCATED)
+    assert result.orders[0].lines[1].line_status == "Partially Allocated"
     assert result.unresolved_shortages[0].sku_id == 2
 
 

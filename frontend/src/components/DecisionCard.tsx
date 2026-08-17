@@ -1,30 +1,33 @@
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
 import { Badge } from './Badge';
-import type { AllocationResponse } from '../types';
-import { toNumber, formatNumber } from '../lib/utils';
+import type { AllocationResponse, PriorityExplanation } from '../types';
+import { formatNumber, formatPriorityScore, toNumber } from '../lib/utils';
 
 interface DecisionCardProps {
   allocation: AllocationResponse;
+  priority: PriorityExplanation | null;
 }
 
-export function DecisionCard({ allocation }: DecisionCardProps) {
-  // Safely access nested properties with defensive checks
-  if (!allocation) {
-    return null;
-  }
+function allocationStatus(requested: number, allocated: number): string {
+  if (requested <= 0) return 'Not Required';
+  if (allocated <= 0) return 'Backordered';
+  if (allocated < requested) return 'Partially Allocated';
+  return 'Allocated';
+}
 
-  // Use flat priority fields from API response
-  const priorityScore = toNumber(allocation?.priority_score);
-  const priorityLabel = allocation?.priority_label || 'Unknown';
-  const priorityReasons = Array.isArray(allocation?.reasons) ? allocation.reasons : [];
-  
-  const order = allocation?.order || { lines: [] };
-  const lines = Array.isArray(order?.lines) ? order.lines : [];
+function allocationVariant(status: string): 'success' | 'warning' | 'neutral' | 'critical' {
+  if (status === 'Allocated') return 'success';
+  if (status === 'Backordered') return 'critical';
+  return status === 'Partially Allocated' ? 'warning' : 'neutral';
+}
 
-  // Compute totals from order lines using safe helpers
-  const totalRequested = lines.reduce((sum, line) => sum + toNumber(line?.quantity_requested), 0);
-  const totalAllocated = lines.reduce((sum, line) => sum + toNumber(line?.quantity_allocated_after), 0);
-  const totalUnfulfilled = lines.reduce((sum, line) => sum + toNumber(line?.quantity_unfulfilled), 0);
+export function DecisionCard({ allocation, priority }: DecisionCardProps) {
+  const lines = allocation.order.lines;
+  const totalRequested = lines.reduce((sum, line) => sum + toNumber(line.quantity_requested), 0);
+  const totalAllocated = lines.reduce((sum, line) => sum + toNumber(line.quantity_allocated_after), 0);
+  const totalUnfulfilled = lines.reduce((sum, line) => sum + toNumber(line.quantity_unfulfilled), 0);
+  const status = allocationStatus(totalRequested, totalAllocated);
+  const priorityScore = priority?.score;
 
   return (
     <Card className="border-l-4 border-l-blue-500">
@@ -35,74 +38,54 @@ export function DecisionCard({ allocation }: DecisionCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Priority Information */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-zinc-600">Priority Score:</span>
-            <span className="font-mono text-sm font-bold">{formatNumber(priorityScore, 0)}/100</span>
-            <Badge variant={priorityScore >= 80 ? 'critical' : priorityScore >= 60 ? 'warning' : 'neutral'}>
-              {priorityLabel}
-            </Badge>
+            <span className="font-mono text-sm font-bold">{formatPriorityScore(priorityScore)}</span>
+            {priority ? (
+              <Badge variant={priority.score >= 80 ? 'critical' : priority.score >= 60 ? 'warning' : 'neutral'}>
+                {priority.label}
+              </Badge>
+            ) : (
+              <Badge variant="neutral">Priority pending</Badge>
+            )}
           </div>
-          
-          {priorityReasons.length > 0 && (
+          {priority?.reasons.length ? (
             <div className="pl-4 border-l-2 border-zinc-200">
               <p className="text-xs font-medium text-zinc-600 mb-1">Why this priority?</p>
               <ul className="text-xs text-zinc-700 space-y-1">
-                {priorityReasons.map((reason, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="text-zinc-400">•</span>
-                    <span>{reason}</span>
-                  </li>
-                ))}
+                {priority.reasons.map((reason, index) => <li key={index}>{reason}</li>)}
               </ul>
             </div>
-          )}
+          ) : null}
         </div>
 
-        {/* Allocation Status */}
+        <div className="border-t pt-4 grid grid-cols-3 gap-4 text-center">
+          <div><p className="text-xs text-zinc-600 mb-1">Requested</p><p className="font-mono text-lg font-semibold">{formatNumber(totalRequested, 0)}</p></div>
+          <div><p className="text-xs text-zinc-600 mb-1">Allocated</p><p className="font-mono text-lg font-semibold text-emerald-600">{formatNumber(totalAllocated, 0)}</p></div>
+          <div><p className="text-xs text-zinc-600 mb-1">Unfulfilled</p><p className="font-mono text-lg font-semibold text-red-600">{formatNumber(totalUnfulfilled, 0)}</p></div>
+        </div>
+
         <div className="border-t pt-4">
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p className="text-xs text-zinc-600 mb-1">Requested</p>
-              <p className="font-mono text-lg font-semibold">{formatNumber(totalRequested, 0)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-zinc-600 mb-1">Allocated</p>
-              <p className="font-mono text-lg font-semibold text-emerald-600">{formatNumber(totalAllocated, 0)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-zinc-600 mb-1">Unfulfilled</p>
-              <p className="font-mono text-lg font-semibold text-red-600">{formatNumber(totalUnfulfilled, 0)}</p>
-            </div>
+          <p className="text-xs font-medium text-zinc-600 mb-2">{allocation.order.explanation}</p>
+          <div className="space-y-2">
+            {lines.map((line) => (
+              <div key={line.order_item_id} className="text-sm bg-zinc-50 p-2 rounded border border-zinc-200">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono">SKU {line.sku_id}</span>
+                  <Badge variant={allocationVariant(line.line_status)}>{line.line_status}</Badge>
+                </div>
+                <p className="text-zinc-600 mt-1">Req: {formatNumber(line.quantity_requested, 0)} · Alloc: {formatNumber(line.quantity_allocated_after, 0)} · Unfulfilled: {formatNumber(line.quantity_unfulfilled, 0)}</p>
+                <p className="text-xs text-zinc-600 mt-1">{line.explanation}</p>
+                {line.source_bins.length > 0 ? <p className="text-xs text-zinc-600 mt-1">Source bins: {line.source_bins.map((bin) => `${bin.location_code} (${bin.quantity_taken})`).join(', ')}</p> : null}
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Order Lines Detail */}
-        {lines.length > 0 && (
-          <div className="border-t pt-4">
-            <p className="text-xs font-medium text-zinc-600 mb-2">Allocation by SKU</p>
-            <div className="space-y-2">
-              {lines.map((line, index) => (
-                <div key={index} className="flex items-center justify-between text-sm bg-zinc-50 p-2 rounded border border-zinc-200">
-                  <span className="font-mono">SKU {toNumber(line?.sku_id)}</span>
-                  <div className="flex gap-4">
-                    <span className="text-zinc-600">Req: {formatNumber(toNumber(line?.quantity_requested), 0)}</span>
-                    <span className="text-emerald-600">Alloc: {formatNumber(toNumber(line?.quantity_allocated_after), 0)}</span>
-                    <span className="text-red-600">Unfulfilled: {formatNumber(toNumber(line?.quantity_unfulfilled), 0)}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Status */}
         <div className="flex items-center justify-between text-sm">
           <span className="text-zinc-600">Allocation Status:</span>
-          <Badge variant={totalUnfulfilled === 0 ? 'success' : 'warning'}>
-            {totalUnfulfilled === 0 ? 'Fully Allocated' : 'Partially Allocated'}
-          </Badge>
+          <Badge variant={allocationVariant(status)}>{status}</Badge>
         </div>
       </CardContent>
     </Card>

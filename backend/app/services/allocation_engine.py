@@ -215,12 +215,14 @@ def _allocate_line(item: OrderItem, inventories: list[Inventory]) -> tuple[LineA
 def _line_result(item: OrderItem, before: int, source_bins: list[BinAllocation], suffix: str) -> LineAllocationResult:
     newly_allocated = item.quantity_allocated - before
     unfulfilled = item.quantity_requested - item.quantity_allocated
-    if unfulfilled == 0:
-        status = "Fulfilled"
-    elif item.quantity_allocated > 0:
+    if item.quantity_requested <= 0:
+        status = "Not Required"
+    elif item.quantity_allocated <= 0:
+        status = "Backordered"
+    elif item.quantity_allocated < item.quantity_requested:
         status = "Partially Allocated"
     else:
-        status = "Unallocated"
+        status = "Allocated"
     if newly_allocated:
         bins = ", ".join(f"{bin.location_code} ({bin.quantity_taken})" for bin in source_bins)
         explanation = f"Allocated {newly_allocated} unit(s) from {bins}.{suffix}"

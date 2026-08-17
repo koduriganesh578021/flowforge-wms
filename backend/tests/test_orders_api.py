@@ -91,6 +91,7 @@ def test_prioritize_persists_score_and_explainable_decision(client_and_session_f
 def test_allocate_returns_requested_order_and_is_idempotent(client_and_session_factory):
     client, factory = client_and_session_factory
     session = seed_order(factory); session.close()
+    assert client.post("/orders/1/prioritize").status_code == 200
 
     first = client.post("/orders/1/allocate")
     second = client.post("/orders/1/allocate")
@@ -103,6 +104,16 @@ def test_allocate_returns_requested_order_and_is_idempotent(client_and_session_f
     assert session.get(Inventory, 1).allocated == 5
     assert session.scalars(select(Decision)).all().__len__() == 1
     session.close()
+
+
+def test_allocate_requires_calculated_priority(client_and_session_factory):
+    client, factory = client_and_session_factory
+    session = seed_order(factory); session.close()
+
+    response = client.post("/orders/1/allocate")
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "Priority must be calculated before inventory allocation."}
 
 
 def test_unknown_and_final_orders_return_expected_errors(client_and_session_factory):
