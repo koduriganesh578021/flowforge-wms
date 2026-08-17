@@ -63,6 +63,7 @@ class DecisionType(str, Enum):
 class DecisionMode(str, Enum):
     AUTO_EXECUTED = "auto_executed"
     APPROVAL_REQUIRED = "approval_required"
+    ESCALATE = "escalate"
     MANUAL_REVIEW = "manual_review"
 
 
