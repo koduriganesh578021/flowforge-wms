@@ -1,4 +1,5 @@
 from app.schemas.common import HealthResponse
+from app.schemas.orders import AllocateResponse, OrderDetail, OrderListItem, PrioritizeResponse
 from app.schemas.entities import (
     DecisionRead,
     EventRead,
@@ -12,6 +13,10 @@ from app.schemas.entities import (
 
 __all__ = [
     "HealthResponse",
+    "OrderListItem",
+    "OrderDetail",
+    "PrioritizeResponse",
+    "AllocateResponse",
     "ProductRead",
     "LocationRead",
     "InventoryRead",
