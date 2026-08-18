@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import type { EventPayload, EventType } from '../types';
 import { Modal } from './ui/Modal';
+import { Button } from './ui/Button';
 
 interface ExceptionReportModalProps {
   isOpen: boolean;
@@ -25,6 +26,15 @@ export function ExceptionReportModal({
   const [notes, setNotes] = useState<string>('');
   const [failureReason, setFailureReason] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const baseId = useId();
+  const eventTypeId = `${baseId}-event-type`;
+  const skuIdId = `${baseId}-sku-id`;
+  const quantityId = `${baseId}-quantity`;
+  const locationIdId = `${baseId}-location-id`;
+  const orderIdId = `${baseId}-order-id`;
+  const notesId = `${baseId}-notes`;
+  const failureReasonId = `${baseId}-failure-reason`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,109 +68,129 @@ export function ExceptionReportModal({
     }
   };
 
+  const inputStyles = "w-full px-3.5 py-2.5 bg-[#16192b] border border-[#424769] text-white rounded-xl focus:outline-none focus:border-[#f9b17a] font-sans text-xs transition-colors";
+  const labelStyles = "block text-xs font-bold text-white mb-1.5 uppercase tracking-wider font-heading";
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Report Issue">
+    <Modal isOpen={isOpen} onClose={onClose} title="Report Warehouse Disruption / Issue">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Event Type */}
         <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">
-            Event Type *
+          <label htmlFor={eventTypeId} className={labelStyles}>
+            Disruption Type <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+            <span className="sr-only">(required)</span>
           </label>
           <select
+            id={eventTypeId}
             value={eventType}
             onChange={(e) => setEventType(e.target.value as EventType)}
-            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputStyles}
             required
+            aria-required="true"
           >
-            <option value="ITEM_DAMAGED">Item Damaged</option>
-            <option value="ITEM_MISSING">Item Missing</option>
-            <option value="QC_FAILED">QC Failed</option>
+            <option value="ITEM_DAMAGED">Item Damaged in Bin</option>
+            <option value="ITEM_MISSING">Item Missing / Discrepancy</option>
+            <option value="QC_FAILED">QC Inspection Failed</option>
           </select>
         </div>
 
         {/* SKU ID */}
         <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">
-            SKU ID *
+          <label htmlFor={skuIdId} className={labelStyles}>
+            SKU ID <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+            <span className="sr-only">(required)</span>
           </label>
           <input
+            id={skuIdId}
             type="number"
             value={skuId || ''}
             onChange={(e) => setSkuId(parseInt(e.target.value) || 0)}
-            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputStyles}
             required
+            aria-required="true"
             min="1"
           />
         </div>
 
         {/* Quantity */}
         <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">
-            Quantity *
+          <label htmlFor={quantityId} className={labelStyles}>
+            Affected Quantity <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+            <span className="sr-only">(required)</span>
           </label>
           <input
+            id={quantityId}
             type="number"
             value={quantity}
             onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
-            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputStyles}
             required
+            aria-required="true"
             min="1"
           />
         </div>
 
         {/* Location ID */}
         <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">
-            Location ID (Bin)
+          <label htmlFor={locationIdId} className={labelStyles}>
+            Bin Location ID (Optional)
           </label>
           <input
+            id={locationIdId}
             type="number"
             value={locationId || ''}
             onChange={(e) => setLocationId(e.target.value ? parseInt(e.target.value) : undefined)}
-            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputStyles}
             min="1"
+            placeholder="e.g. Bin 1"
           />
         </div>
 
         {/* Order ID */}
         <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">
-            Related Order ID
+          <label htmlFor={orderIdId} className={labelStyles}>
+            Related Order ID (Optional)
           </label>
           <input
+            id={orderIdId}
             type="number"
             value={orderId || ''}
             onChange={(e) => setOrderId(e.target.value ? parseInt(e.target.value) : undefined)}
-            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputStyles}
             min="1"
+            placeholder="e.g. Order 101"
           />
         </div>
 
         {/* Notes */}
         <div>
-          <label className="block text-sm font-medium text-zinc-700 mb-1">
-            Notes
+          <label htmlFor={notesId} className={labelStyles}>
+            Contextual Notes
           </label>
           <textarea
+            id={notesId}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={inputStyles}
             rows={3}
-            placeholder="Additional details about the issue..."
+            placeholder="Additional details about the issue for the decision engine..."
           />
         </div>
 
         {/* Failure Reason (for QC_FAILED) */}
         {eventType === 'QC_FAILED' && (
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">
-              Failure Reason *
+            <label htmlFor={failureReasonId} className={labelStyles}>
+              QC Failure Reason <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+              <span className="sr-only">(required)</span>
             </label>
             <select
+              id={failureReasonId}
               value={failureReason}
               onChange={(e) => setFailureReason(e.target.value)}
-              className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={inputStyles}
               required
+              aria-required="true"
             >
               <option value="">Select a reason...</option>
               <option value="Quantity Mismatch">Quantity Mismatch</option>
@@ -173,24 +203,28 @@ export function ExceptionReportModal({
         )}
 
         {/* Actions */}
-        <div className="flex gap-3 pt-4">
-          <button
+        <div className="flex gap-3 pt-4 border-t border-[#424769]/50">
+          <Button
             type="button"
+            variant="secondary"
             onClick={onClose}
             disabled={isSubmitting}
-            className="flex-1 px-4 py-2 bg-zinc-200 text-zinc-900 rounded-md font-medium hover:bg-zinc-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
+            variant="primary"
+            loading={isSubmitting}
             disabled={isSubmitting}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1"
           >
-            {isSubmitting ? 'Submitting...' : 'Submit Report'}
-          </button>
+            Submit Report
+          </Button>
         </div>
       </form>
     </Modal>
   );
 }
+

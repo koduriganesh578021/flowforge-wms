@@ -12,35 +12,37 @@ export function StatusTimeline({ events }: StatusTimelineProps) {
     if (!dateString) return '—';
     const parsed = new Date(dateString);
     if (Number.isNaN(parsed.getTime())) return '—';
-    return parsed.toLocaleString();
+    return parsed.toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
   };
   
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base font-semibold">Status Timeline</CardTitle>
+    <Card className="glass-card">
+      <CardHeader className="pb-3 border-b border-[#424769]/50">
+        <CardTitle className="text-sm font-bold uppercase tracking-wider text-white font-heading">
+          Status History
+        </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-4">
         {hasEvents ? (
-          <div className="space-y-3">
+          <ol className="space-y-3" aria-label="Status transition history">
             {events.map((event, index) => (
-              <div key={index} className="flex gap-3 text-sm">
-                <div className="font-mono text-xs text-zinc-500 w-32 shrink-0">
+              <li key={index} className="flex gap-3 text-xs font-mono">
+                <span className="text-[#9ba3c9] w-28 shrink-0">
                   {formatDate(event.timestamp)}
-                </div>
+                </span>
                 <div className="flex-1">
-                  <p className="text-zinc-900 font-medium">{event.status}</p>
+                  <p className="text-white font-bold">{event.status}</p>
                   {event.actor && (
-                    <p className="text-xs text-zinc-500 mt-0.5">by {event.actor}</p>
+                    <p className="text-[11px] text-[#9ba3c9] mt-0.5 font-sans">by {event.actor}</p>
                   )}
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ol>
         ) : (
-          <div className="text-sm text-zinc-500 italic">
-            No status history available.
-          </div>
+          <p className="text-xs text-[#9ba3c9] italic">
+            No status transition history recorded yet.
+          </p>
         )}
       </CardContent>
     </Card>

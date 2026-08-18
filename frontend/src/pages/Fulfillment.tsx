@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 import { ExceptionReportModal } from '../components/ExceptionReportModal';
 import { DecisionAlert } from '../components/DecisionAlert';
 import { eventsApi } from '../api/events';
 import type { EventPayload, DecisionResponse } from '../types';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Kanban } from 'lucide-react';
 
 export function Fulfillment() {
   const [isExceptionModalOpen, setIsExceptionModalOpen] = useState(false);
@@ -21,19 +22,23 @@ export function Fulfillment() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Fulfillment</h1>
-          <p className="text-sm text-zinc-600 mt-1">Picking, packing, and dispatch operations</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2 font-heading">
+            Fulfillment Stage Pipeline
+            <Kanban className="w-6 h-6 text-[#f9b17a]" aria-hidden="true" />
+          </h1>
+          <p className="text-xs text-[#9ba3c9] mt-1 font-medium">Picking, packing, and dispatch operations</p>
         </div>
-        <button
+        <Button
+          variant="danger"
           onClick={() => setIsExceptionModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors"
+          aria-label="Report fulfillment disruption or exception"
+          prefix={<AlertTriangle className="w-4 h-4" aria-hidden="true" />}
         >
-          <AlertTriangle className="w-4 h-4" />
           Report Issue
-        </button>
+        </Button>
       </div>
       
       {/* Decision Result Alert */}
@@ -46,13 +51,15 @@ export function Fulfillment() {
         />
       )}
       
-      <Card>
-        <CardHeader>
-          <CardTitle>Fulfillment Board</CardTitle>
+      <Card className="glass-card">
+        <CardHeader className="border-b border-[#424769]/50 pb-3">
+          <CardTitle className="text-sm font-bold uppercase tracking-wider text-white font-heading">
+            Fulfillment Board
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-zinc-500 italic">
-            Kanban-style fulfillment board showing Ready to Pick → Picking → Packed → Quality Check → Ready to Dispatch → Dispatched stages.
+        <CardContent className="pt-4">
+          <p className="text-xs text-[#d1d5db] font-mono leading-relaxed">
+            Multi-stage fulfillment pipeline tracking Ready to Pick → Picking → Picked → Packing → Quality Check → Ready to Dispatch → Dispatched stages.
           </p>
         </CardContent>
       </Card>
@@ -66,3 +73,4 @@ export function Fulfillment() {
     </div>
   );
 }
+

@@ -8,8 +8,9 @@ import { ExceptionReportModal } from '../components/ExceptionReportModal';
 import { DecisionAlert } from '../components/DecisionAlert';
 import { eventsApi } from '../api/events';
 import type { EventPayload, DecisionResponse } from '../types';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Truck } from 'lucide-react';
 import { Toast, useToast } from '../components/Toast';
+import { Button } from '../components/ui/Button';
 
 export function FulfillmentBoard() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -17,6 +18,7 @@ export function FulfillmentBoard() {
   const [error, setError] = useState<string | null>(null);
   const [isExceptionModalOpen, setIsExceptionModalOpen] = useState(false);
   const [decisionResult, setDecisionResult] = useState<DecisionResponse | null>(null);
+  const [liveAnnouncement, setLiveAnnouncement] = useState('');
   const { toasts, showToast, removeToast } = useToast();
 
   const loadOrders = useCallback(async () => {
@@ -25,6 +27,7 @@ export function FulfillmentBoard() {
       setError(null);
       const data = await ordersApi.getOrders();
       setOrders(data);
+      setLiveAnnouncement(`Fulfillment board updated. Loaded ${data.length} active orders.`);
     } catch (err) {
       setError('Failed to load orders. Please check if the backend is running.');
       console.error('Error loading orders:', err);
@@ -53,43 +56,70 @@ export function FulfillmentBoard() {
     return orders.filter(order => statuses.includes(order.status));
   };
 
-  if (loading) {
+  if (loading && orders.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-zinc-500">Loading fulfillment board...</div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="flex items-center justify-center h-64 glass-card rounded-2xl" aria-busy="true">
+          <div className="text-[#9ba3c9] font-mono flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin text-[#f9b17a]" aria-hidden="true" />
+            Loading fulfillment board...
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="space-y-4">
-        <div className="text-red-600">{error}</div>
-        <button
-          onClick={loadOrders}
-          className="px-4 py-2 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition-colors"
-        >
-          Retry
-        </button>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div role="alert" aria-live="assertive" className="p-6 border border-rose-500/40 bg-rose-950/40 rounded-2xl space-y-4">
+          <div className="text-rose-300 font-semibold">{error}</div>
+          <Button variant="danger" onClick={loadOrders}>
+            Retry
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      {/* Polite Live Announcement */}
+      <div className="sr-only" aria-live="polite" role="status">
+        {liveAnnouncement}
+      </div>
+
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Fulfillment Board</h1>
-          <p className="text-sm text-zinc-600 mt-1">Track order progress through fulfillment stages</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2 font-heading">
+            Fulfillment Kanban Board
+            <Truck className="w-6 h-6 text-[#f9b17a]" aria-hidden="true" />
+          </h1>
+          <p className="text-xs text-[#9ba3c9] mt-1 font-medium">
+            Track and advance orders across fulfillment stages (Picking → QC → Packing → Dispatch)
+          </p>
         </div>
-        <button
-          onClick={() => setIsExceptionModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors"
-        >
-          <AlertTriangle className="w-4 h-4" />
-          Report Issue
-        </button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            onClick={loadOrders}
+            disabled={loading}
+            aria-label="Refresh fulfillment board"
+            className="gap-2 shrink-0 shadow-md"
+          >
+            <RefreshCw className={`w-4 h-4 text-[#f9b17a] ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
+            Refresh Board
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => setIsExceptionModalOpen(true)}
+            aria-label="Report disruption or warehouse exception"
+            prefix={<AlertTriangle className="w-4 h-4" aria-hidden="true" />}
+          >
+            Report Issue
+          </Button>
+        </div>
       </div>
       
       {/* Decision Result Alert */}
@@ -102,41 +132,59 @@ export function FulfillmentBoard() {
         />
       )}
       
-      {/* Kanban Board */}
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      {/* Kanban Board Layout */}
+      <div
+        className="flex gap-5 overflow-x-auto pb-6 scrollbar-thin"
+        role="region"
+        aria-label="Fulfillment stages Kanban board"
+      >
         {FULFILLMENT_COLUMNS.map((column) => {
           const columnOrders = getOrdersForColumn(column.statuses);
+          const laneId = `lane-${column.id}`;
           
           return (
-            <div
+            <section
               key={column.id}
-              className="flex-shrink-0 w-80 space-y-3"
+              aria-labelledby={laneId}
+              className="flex-shrink-0 w-80 space-y-3 bg-[#2d3250]/70 p-5 rounded-2xl border border-[#424769]/50 backdrop-blur-xl"
             >
               {/* Column Header */}
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-zinc-900">{column.title}</h2>
-                <span className="text-xs text-zinc-500 font-mono">
+              <div className="flex items-center justify-between border-b border-[#424769]/50 pb-3">
+                <h2 id={laneId} className="text-xs font-bold uppercase tracking-wider text-white font-heading">
+                  {column.title}
+                </h2>
+                <span
+                  aria-label={`${columnOrders.length} orders`}
+                  className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-[#f9b17a]/20 text-[#f9b17a] border border-[#f9b17a]/30"
+                >
                   {columnOrders.length}
                 </span>
               </div>
               
-              {/* Column Content */}
-              <div className="space-y-3 min-h-[200px]">
+              {/* Column Cards */}
+              <div
+                className="space-y-3 min-h-[300px]"
+                tabIndex={0}
+                aria-label={`${column.title} column orders`}
+              >
                 {columnOrders.length === 0 ? (
-                  <div className="text-sm text-zinc-400 italic p-4 border border-dashed border-zinc-200 rounded-lg">
-                    No orders
+                  <div className="text-xs text-[#9ba3c9] italic p-6 border border-dashed border-[#424769]/60 rounded-xl text-center">
+                    No orders in stage
                   </div>
                 ) : (
-                  columnOrders.map((order) => (
-                    <OrderCard
-                      key={order.id}
-                      order={order}
-                      onTransitionSuccess={loadOrders}
-                    />
-                  ))
+                  <ul className="space-y-3" aria-label={`Orders in ${column.title}`}>
+                    {columnOrders.map((order) => (
+                      <li key={order.id}>
+                        <OrderCard
+                          order={order}
+                          onTransitionSuccess={loadOrders}
+                        />
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
-            </div>
+            </section>
           );
         })}
       </div>
@@ -151,3 +199,4 @@ export function FulfillmentBoard() {
     </div>
   );
 }
+

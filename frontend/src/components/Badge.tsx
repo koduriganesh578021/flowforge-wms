@@ -8,17 +8,17 @@ interface BadgeProps {
 
 export function Badge({ variant, children, className }: BadgeProps) {
   const variantStyles = {
-    critical: 'bg-red-100 text-red-800 border-red-200',
-    warning: 'bg-amber-100 text-amber-800 border-amber-200',
-    success: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    neutral: 'bg-zinc-100 text-zinc-800 border-zinc-200',
-    active: 'bg-blue-100 text-blue-800 border-blue-200',
+    critical: 'bg-rose-950/70 text-rose-300 border-rose-500/50 shadow-xs font-bold',
+    warning: 'bg-amber-950/70 text-amber-300 border-amber-500/50 shadow-xs font-bold',
+    success: 'bg-emerald-950/70 text-emerald-300 border-emerald-500/50 shadow-xs font-bold',
+    neutral: 'bg-[#2d3250] text-[#d1d5db] border-[#424769] font-medium',
+    active: 'bg-[#f9b17a]/20 text-[#f9b17a] border-[#f9b17a]/50 shadow-xs shadow-[#f9b17a]/10 font-bold',
   };
 
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2 py-0.5 text-xs font-medium border rounded',
+        'inline-flex items-center px-2.5 py-0.5 text-xs border rounded-full backdrop-blur-xs font-mono transition-colors tracking-wide',
         variantStyles[variant],
         className
       )}
@@ -27,3 +27,4 @@ export function Badge({ variant, children, className }: BadgeProps) {
     </span>
   );
 }
+

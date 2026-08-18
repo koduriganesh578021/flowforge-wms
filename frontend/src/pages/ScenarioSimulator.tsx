@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useId } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useToast, Toast } from '../components/Toast';
@@ -15,6 +15,18 @@ export function ScenarioSimulator() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const { toasts, showToast, removeToast } = useToast();
+
+  const baseId = useId();
+  const damageSkuId = `${baseId}-damage-sku`;
+  const damageLocationId = `${baseId}-damage-location`;
+  const damageQuantityId = `${baseId}-damage-qty`;
+
+  const countSkuId = `${baseId}-count-sku`;
+  const countLocationId = `${baseId}-count-location`;
+  const countNewCountId = `${baseId}-count-new`;
+
+  const qcOrderId = `${baseId}-qc-order`;
+  const qcSkuId = `${baseId}-qc-sku`;
 
   // Form states for each simulator action
   const [damageForm, setDamageForm] = useState({
@@ -78,7 +90,7 @@ export function ScenarioSimulator() {
       });
       showToast('Stock damage reported successfully', 'success');
       setDamageForm({ sku_id: '', location_id: '', quantity: '1' });
-      await loadData(); // Refresh data
+      await loadData();
     } catch (error) {
       console.error('Error reporting damaged stock:', error);
       showToast('Failed to report damaged stock', 'error');
@@ -103,7 +115,7 @@ export function ScenarioSimulator() {
       });
       showToast('Cycle count updated successfully', 'success');
       setCountForm({ sku_id: '', location_id: '', new_count: '' });
-      await loadData(); // Refresh data
+      await loadData();
     } catch (error) {
       console.error('Error updating count:', error);
       showToast('Failed to update cycle count', 'error');
@@ -127,7 +139,7 @@ export function ScenarioSimulator() {
       });
       showToast('QC failure simulated successfully', 'success');
       setQcForm({ order_id: '', sku_id: '' });
-      await loadData(); // Refresh data
+      await loadData();
     } catch (error) {
       console.error('Error simulating QC failure:', error);
       showToast('Failed to simulate QC failure', 'error');
@@ -136,58 +148,68 @@ export function ScenarioSimulator() {
     }
   };
 
+  const inputStyles = "w-full px-3.5 py-2.5 bg-[#16192b] border border-[#424769] text-white rounded-xl focus:outline-none focus:border-[#f9b17a] font-sans text-xs transition-colors";
+  const labelStyles = "block text-xs font-bold text-white mb-1.5 uppercase tracking-wider font-heading";
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Warehouse Reality Simulator</h1>
-          <p className="text-sm text-zinc-600 mt-1">Control panel for triggering warehouse state changes</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2 font-heading">
+            Warehouse Reality Simulator
+            <Zap className="w-6 h-6 text-[#f9b17a]" aria-hidden="true" />
+          </h1>
+          <p className="text-xs text-[#9ba3c9] mt-1 font-medium">Control panel for triggering warehouse state changes</p>
         </div>
         <Button
           variant="secondary"
-          onClick={() => loadData()}
+          onClick={() => void loadData()}
           disabled={loading}
-          className="flex items-center gap-2"
+          aria-label="Refresh simulator data"
+          className="gap-2 shrink-0 shadow-md"
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className={`w-4 h-4 text-[#f9b17a] ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
           Refresh Data
         </Button>
       </div>
 
       {loadError && (
-        <div className="flex items-center justify-between gap-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+        <div role="alert" aria-live="assertive" className="flex items-center justify-between gap-4 rounded-xl border border-rose-500/40 bg-rose-950/40 p-4 text-xs text-rose-200">
           <span>{loadError}</span>
-          <Button variant="secondary" onClick={() => loadData()} disabled={loading}>
+          <Button variant="secondary" onClick={() => void loadData()} disabled={loading}>
             Try Again
           </Button>
         </div>
       )}
 
       {loading && !loadError && (
-        <p className="text-sm text-zinc-500">Loading simulator data...</p>
+        <p className="text-xs text-[#9ba3c9] font-mono">Loading simulator telemetry...</p>
       )}
 
       {/* Action Cards Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Damage Stock Card */}
-        <Card className="border-l-4 border-l-red-600">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="w-5 h-5 text-red-600" />
+        <Card className="glass-card border-l-4 border-l-rose-500">
+          <CardHeader className="pb-3 border-b border-[#424769]/50">
+            <CardTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-white font-heading">
+              <AlertTriangle className="w-4 h-4 text-rose-400" aria-hidden="true" />
               Report Damaged Stock
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <form onSubmit={handleDamageStock} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  SKU
+                <label htmlFor={damageSkuId} className={labelStyles}>
+                  SKU <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+                  <span className="sr-only">(required)</span>
                 </label>
                 <select
+                  id={damageSkuId}
                   value={damageForm.sku_id}
                   onChange={(e) => setDamageForm({ ...damageForm, sku_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm font-mono"
+                  className={inputStyles}
                   required
+                  aria-required="true"
                 >
                   <option value="">Select SKU...</option>
                   {inventory.map((item) => (
@@ -199,30 +221,36 @@ export function ScenarioSimulator() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Location ID (Bin)
+                <label htmlFor={damageLocationId} className={labelStyles}>
+                  Location ID (Bin) <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+                  <span className="sr-only">(required)</span>
                 </label>
                 <input
+                  id={damageLocationId}
                   type="number"
                   value={damageForm.location_id}
                   onChange={(e) => setDamageForm({ ...damageForm, location_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm font-mono"
+                  className={inputStyles}
                   placeholder="Enter location ID"
                   required
+                  aria-required="true"
                   min="1"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Damaged Quantity
+                <label htmlFor={damageQuantityId} className={labelStyles}>
+                  Damaged Quantity <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+                  <span className="sr-only">(required)</span>
                 </label>
                 <input
+                  id={damageQuantityId}
                   type="number"
                   value={damageForm.quantity}
                   onChange={(e) => setDamageForm({ ...damageForm, quantity: e.target.value })}
-                  className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm font-mono"
+                  className={inputStyles}
                   required
+                  aria-required="true"
                   min="1"
                 />
               </div>
@@ -230,34 +258,39 @@ export function ScenarioSimulator() {
               <Button
                 type="submit"
                 variant="danger"
+                loading={submitting.damage}
                 disabled={submitting.damage}
-                className="w-full"
+                aria-label="Report stock damage"
+                className="w-full justify-center"
               >
-                {submitting.damage ? 'Submitting...' : 'Report Damage'}
+                Report Damage
               </Button>
             </form>
           </CardContent>
         </Card>
 
         {/* Cycle Count Correction Card */}
-        <Card className="border-l-4 border-l-amber-600">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Scale className="w-5 h-5 text-amber-600" />
+        <Card className="glass-card border-l-4 border-l-amber-500">
+          <CardHeader className="pb-3 border-b border-[#424769]/50">
+            <CardTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-white font-heading">
+              <Scale className="w-4 h-4 text-amber-400" aria-hidden="true" />
               Cycle Count Correction
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <form onSubmit={handleUpdateCount} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  SKU
+                <label htmlFor={countSkuId} className={labelStyles}>
+                  SKU <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+                  <span className="sr-only">(required)</span>
                 </label>
                 <select
+                  id={countSkuId}
                   value={countForm.sku_id}
                   onChange={(e) => setCountForm({ ...countForm, sku_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm font-mono"
+                  className={inputStyles}
                   required
+                  aria-required="true"
                 >
                   <option value="">Select SKU...</option>
                   {inventory.map((item) => (
@@ -269,31 +302,37 @@ export function ScenarioSimulator() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Location ID (Bin)
+                <label htmlFor={countLocationId} className={labelStyles}>
+                  Location ID (Bin) <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+                  <span className="sr-only">(required)</span>
                 </label>
                 <input
+                  id={countLocationId}
                   type="number"
                   value={countForm.location_id}
                   onChange={(e) => setCountForm({ ...countForm, location_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm font-mono"
+                  className={inputStyles}
                   placeholder="Enter location ID"
                   required
+                  aria-required="true"
                   min="1"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  New Actual Count
+                <label htmlFor={countNewCountId} className={labelStyles}>
+                  New Actual Count <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+                  <span className="sr-only">(required)</span>
                 </label>
                 <input
+                  id={countNewCountId}
                   type="number"
                   value={countForm.new_count}
                   onChange={(e) => setCountForm({ ...countForm, new_count: e.target.value })}
-                  className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm font-mono"
+                  className={inputStyles}
                   placeholder="Enter new count"
                   required
+                  aria-required="true"
                   min="0"
                 />
               </div>
@@ -301,34 +340,39 @@ export function ScenarioSimulator() {
               <Button
                 type="submit"
                 variant="primary"
+                loading={submitting.count}
                 disabled={submitting.count}
-                className="w-full"
+                aria-label="Update inventory cycle count"
+                className="w-full justify-center"
               >
-                {submitting.count ? 'Updating...' : 'Update Count'}
+                Update Count
               </Button>
             </form>
           </CardContent>
         </Card>
 
         {/* QC Failure Card */}
-        <Card className="border-l-4 border-l-blue-600">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Zap className="w-5 h-5 text-blue-600" />
+        <Card className="glass-card border-l-4 border-l-blue-500">
+          <CardHeader className="pb-3 border-b border-[#424769]/50">
+            <CardTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-white font-heading">
+              <Zap className="w-4 h-4 text-blue-400" aria-hidden="true" />
               Simulate QC Failure
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <form onSubmit={handleFailQc} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  Order ID
+                <label htmlFor={qcOrderId} className={labelStyles}>
+                  Order ID <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+                  <span className="sr-only">(required)</span>
                 </label>
                 <select
+                  id={qcOrderId}
                   value={qcForm.order_id}
                   onChange={(e) => setQcForm({ ...qcForm, order_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono"
+                  className={inputStyles}
                   required
+                  aria-required="true"
                 >
                   <option value="">Select Order...</option>
                   {orders.map((order) => (
@@ -340,14 +384,17 @@ export function ScenarioSimulator() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-700 mb-1">
-                  SKU
+                <label htmlFor={qcSkuId} className={labelStyles}>
+                  SKU <span className="text-[#f9b17a]" aria-hidden="true">*</span>
+                  <span className="sr-only">(required)</span>
                 </label>
                 <select
+                  id={qcSkuId}
                   value={qcForm.sku_id}
                   onChange={(e) => setQcForm({ ...qcForm, sku_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-zinc-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-mono"
+                  className={inputStyles}
                   required
+                  aria-required="true"
                 >
                   <option value="">Select SKU...</option>
                   {inventory.map((item) => (
@@ -358,19 +405,21 @@ export function ScenarioSimulator() {
                 </select>
               </div>
 
-              <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
-                <p className="text-xs text-blue-900">
-                  <strong>Note:</strong> This will mark the order's inspection status as FAILED and trigger a QC_FAILED event.
+              <div className="p-3 bg-blue-950/40 rounded-xl border border-blue-500/30">
+                <p className="text-xs text-blue-200 leading-relaxed">
+                  <strong>Note:</strong> Marks the order&apos;s inspection status as FAILED and triggers a QC_FAILED disruption event.
                 </p>
               </div>
 
               <Button
                 type="submit"
                 variant="primary"
+                loading={submitting.qc}
                 disabled={submitting.qc}
-                className="w-full"
+                aria-label="Submit simulated QC failure"
+                className="w-full justify-center"
               >
-                {submitting.qc ? 'Processing...' : 'Fail QC'}
+                Fail QC
               </Button>
             </form>
           </CardContent>
@@ -378,32 +427,32 @@ export function ScenarioSimulator() {
       </div>
 
       {/* Current Data Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Package className="w-5 h-5 text-zinc-600" />
+      <Card className="glass-card">
+        <CardHeader className="pb-3 border-b border-[#424769]/50">
+          <CardTitle className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-white font-heading">
+            <Package className="w-4 h-4 text-[#f9b17a]" aria-hidden="true" />
             Current System State
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-3 bg-zinc-50 rounded-md border border-zinc-200">
-              <p className="text-xs text-zinc-600 font-medium">Total SKUs</p>
-              <p className="text-lg font-bold font-mono text-zinc-900">{inventory.length}</p>
+            <div className="p-3.5 bg-[#16192b] rounded-xl border border-[#424769]/50">
+              <p className="text-xs text-[#9ba3c9] font-bold uppercase">Total SKUs</p>
+              <p className="text-xl font-bold font-mono text-white mt-1">{inventory.length}</p>
             </div>
-            <div className="p-3 bg-zinc-50 rounded-md border border-zinc-200">
-              <p className="text-xs text-zinc-600 font-medium">Active Orders</p>
-              <p className="text-lg font-bold font-mono text-zinc-900">{orders.length}</p>
+            <div className="p-3.5 bg-[#16192b] rounded-xl border border-[#424769]/50">
+              <p className="text-xs text-[#9ba3c9] font-bold uppercase">Active Orders</p>
+              <p className="text-xl font-bold font-mono text-white mt-1">{orders.length}</p>
             </div>
-            <div className="p-3 bg-zinc-50 rounded-md border border-zinc-200">
-              <p className="text-xs text-zinc-600 font-medium">Damaged Items</p>
-              <p className="text-lg font-bold font-mono text-red-600">
+            <div className="p-3.5 bg-[#16192b] rounded-xl border border-[#424769]/50">
+              <p className="text-xs text-[#9ba3c9] font-bold uppercase">Damaged Items</p>
+              <p className="text-xl font-bold font-mono text-rose-400 mt-1">
                 {inventory.reduce((sum, item) => sum + item.damaged, 0)}
               </p>
             </div>
-            <div className="p-3 bg-zinc-50 rounded-md border border-zinc-200">
-              <p className="text-xs text-zinc-600 font-medium">Low Stock Items</p>
-              <p className="text-lg font-bold font-mono text-amber-600">
+            <div className="p-3.5 bg-[#16192b] rounded-xl border border-[#424769]/50">
+              <p className="text-xs text-[#9ba3c9] font-bold uppercase">Low Stock Items</p>
+              <p className="text-xl font-bold font-mono text-amber-400 mt-1">
                 {inventory.filter((item) => item.status === 'High Risk' || item.status === 'Stockout').length}
               </p>
             </div>
@@ -423,3 +472,4 @@ export function ScenarioSimulator() {
     </div>
   );
 }
+

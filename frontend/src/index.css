@@ -1,30 +1,125 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+@layer base {
+  :root {
+    /* Palette from design: #ffffff, #9ba3c9 (boosted for WCAG AA contrast), #424769, #2d3250, #f9b17a */
+    --color-bg-dark: #16192b;
+    --color-primary-navy: #2d3250;
+    --color-secondary-slate: #424769;
+    --color-muted-indigo: #9ba3c9;
+    --color-peach-accent: #f9b17a;
+    --color-peach-hover: #fa9d58;
+    --color-white: #ffffff;
+  }
+}
 
-:root {
-  /* Industrial Console Theme - light background for high-trust operations */
-  --background: 240 10% 98%;
-  --foreground: 240 10% 9%;
-  --border: 240 3.7% 86%;
-  --muted: 240 3.7% 96%;
-  --muted-foreground: 240 5% 46%;
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  background-color: #141727;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(103, 111, 157, 0.12) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(249, 177, 122, 0.08) 0px, transparent 50%);
+  background-attachment: fixed;
+  color: #ffffff;
   margin: 0;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'Raleway', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Operational identifiers - use monospace for IDs, SKUs, quantities, bin codes, timestamps */
-.font-mono {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+/* Accessibility Focus Visible Styles */
+:focus-visible {
+  outline: 2px solid #f9b17a;
+  outline-offset: 2px;
 }
 
-* {
-  box-sizing: border-box;
+/* Visually Hidden Utility for Screen Readers */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only.focus\:not-sr-only:focus,
+.sr-only.focus\:not-sr-only:focus-visible {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 0.75rem 1.25rem;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.font-heading {
+  font-family: 'Raleway', sans-serif;
+}
+
+/* Palette specific glass & card styling */
+.glass-panel {
+  background: rgba(45, 50, 80, 0.85);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(103, 111, 157, 0.25);
+  box-shadow: 0 20px 30px -10px rgba(20, 23, 39, 0.7);
+}
+
+.glass-card {
+  background: rgba(45, 50, 80, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(103, 111, 157, 0.2);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: rgba(45, 50, 80, 0.95);
+  border-color: rgba(249, 177, 122, 0.45);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -5px rgba(249, 177, 122, 0.12);
+}
+
+/* Peach highlight text */
+.text-peach {
+  color: #f9b17a;
+}
+
+.bg-peach {
+  background-color: #f9b17a;
+}
+
+.border-peach {
+  border-color: #f9b17a;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #141727;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #424769;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #676f9d;
 }

@@ -1,6 +1,6 @@
 import type { DecisionMode } from '../types';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/Card';
-import { CheckCircle, AlertTriangle, AlertOctagon, Clock } from 'lucide-react';
+import { CheckCircle, AlertTriangle, AlertOctagon, Clock, X } from 'lucide-react';
 
 interface DecisionAlertProps {
   decisionMode: DecisionMode;
@@ -16,23 +16,23 @@ interface DecisionAlertProps {
 const decisionConfig = {
   AUTO_EXECUTED: {
     icon: CheckCircle,
-    color: 'text-emerald-600',
-    bgColor: 'bg-emerald-50',
-    borderColor: 'border-emerald-200',
+    color: 'text-emerald-400',
+    bgColor: 'bg-emerald-950/30',
+    borderColor: 'border-emerald-500/40',
     label: 'Auto-Executed'
   },
   APPROVAL_REQUIRED: {
     icon: AlertTriangle,
-    color: 'text-amber-600',
-    bgColor: 'bg-amber-50',
-    borderColor: 'border-amber-200',
+    color: 'text-amber-400',
+    bgColor: 'bg-amber-950/30',
+    borderColor: 'border-amber-500/40',
     label: 'Approval Required'
   },
   ESCALATE: {
     icon: AlertOctagon,
-    color: 'text-red-600',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-200',
+    color: 'text-rose-400',
+    bgColor: 'bg-rose-950/30',
+    borderColor: 'border-rose-500/40',
     label: 'Escalated'
   }
 };
@@ -47,39 +47,46 @@ export function DecisionAlert({
   const Icon = config.icon;
 
   return (
-    <Card className={`${config.bgColor} ${config.borderColor} border`}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <Icon className={`w-5 h-5 ${config.color}`} />
-            <CardTitle className="text-base">Decision: {config.label}</CardTitle>
+    <div role="status" aria-live="polite">
+      <Card className={`${config.bgColor} ${config.borderColor} border glass-card text-white`}>
+        <CardHeader className="pb-3 border-b border-[#424769]/50">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              <Icon className={`w-5 h-5 ${config.color}`} aria-hidden="true" />
+              <CardTitle className="text-base font-bold font-heading">
+                Decision: {config.label}
+              </CardTitle>
+            </div>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Dismiss decision alert"
+                className="text-[#9ba3c9] hover:text-white p-1 rounded-lg hover:bg-[#2d3250] focus:outline-none focus:ring-2 focus:ring-[#f9b17a] transition-colors"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            )}
           </div>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="text-zinc-400 hover:text-zinc-600 transition-colors"
-            >
-              ×
-            </button>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-4">
+          <p className="text-xs text-white leading-relaxed font-medium">{explanation}</p>
+          
+          {alternateBinSuggestion && (
+            <div className="mt-3 p-3.5 bg-[#16192b] rounded-xl border border-[#424769]/60">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#f9b17a] font-mono mb-2">
+                <Clock className="w-4 h-4 text-[#f9b17a]" aria-hidden="true" />
+                Alternate Bin Suggestion
+              </div>
+              <div className="text-xs text-[#d1d5db] font-mono space-y-1">
+                <p><span className="font-semibold text-[#9ba3c9]">Location:</span> <strong className="text-white">{alternateBinSuggestion.location_code}</strong></p>
+                <p><span className="font-semibold text-[#9ba3c9]">Available:</span> <strong className="text-emerald-400">{alternateBinSuggestion.quantity_available} units</strong></p>
+              </div>
+            </div>
           )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-zinc-700">{explanation}</p>
-        
-        {alternateBinSuggestion && (
-          <div className="mt-3 p-3 bg-white rounded-md border border-zinc-200">
-            <div className="flex items-center gap-2 text-sm font-medium text-zinc-900 mb-2">
-              <Clock className="w-4 h-4 text-zinc-500" />
-              Alternate Bin Suggestion
-            </div>
-            <div className="text-sm text-zinc-600 space-y-1">
-              <p><span className="font-medium">Location:</span> {alternateBinSuggestion.location_code}</p>
-              <p><span className="font-medium">Available:</span> {alternateBinSuggestion.quantity_available} units</p>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
+

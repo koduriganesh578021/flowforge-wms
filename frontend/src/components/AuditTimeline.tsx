@@ -8,48 +8,33 @@ export function AuditTimeline({ events }: AuditTimelineProps) {
   const hasEvents = events && events.length > 0;
   
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base font-semibold">Audit Timeline</CardTitle>
+    <Card className="glass-card">
+      <CardHeader className="pb-3 border-b border-[#424769]/50">
+        <CardTitle className="text-sm font-bold uppercase tracking-wider text-white font-heading">
+          Audit Decision Trail
+        </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-4">
         {hasEvents ? (
-          <div className="space-y-3">
+          <ol className="space-y-3" aria-label="Audit decision step sequence">
             {events.map((event, index) => (
-              <div key={index} className="flex gap-3 text-sm">
-                <div className="font-mono text-xs text-zinc-500 w-24 shrink-0">
+              <li key={index} className="flex gap-3 text-xs font-mono">
+                <span className="text-[#f9b17a] font-bold w-16 shrink-0">
                   Step {index + 1}
-                </div>
-                <div className="flex-1">
-                  <p className="text-zinc-700">{event}</p>
-                </div>
-              </div>
+                </span>
+                <span className="flex-1 text-[#d1d5db] font-sans">
+                  {event}
+                </span>
+              </li>
             ))}
-          </div>
+          </ol>
         ) : (
-          <>
-            <div className="text-sm text-zinc-500 italic">
-              Audit timeline will be populated with decision events and state changes.
-            </div>
-            <div className="mt-4 space-y-3">
-              {/* Placeholder timeline items */}
-              {[
-                { time: 'Pending', event: 'System initialization', status: 'neutral' },
-                { time: 'Pending', event: 'Order events will appear here', status: 'neutral' },
-              ].map((item, index) => (
-                <div key={index} className="flex gap-3 text-sm">
-                  <div className="font-mono text-xs text-zinc-500 w-24 shrink-0">
-                    {item.time}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-zinc-700">{item.event}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
+          <p className="text-xs text-[#9ba3c9] italic">
+            Audit decision events will appear here once priority or allocation calculation executes.
+          </p>
         )}
       </CardContent>
     </Card>
   );
 }
+

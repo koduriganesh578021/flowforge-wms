@@ -18,41 +18,45 @@ export function Toast({ message, type, onClose }: ToastProps) {
     const timer = setTimeout(() => {
       setIsVisible(false);
       setTimeout(onClose, 300);
-    }, 3000);
+    }, 4000);
 
     return () => clearTimeout(timer);
   }, [onClose]);
 
   const icons = {
-    success: <CheckCircle className="w-5 h-5 text-emerald-600" />,
-    error: <AlertCircle className="w-5 h-5 text-red-600" />,
-    info: <AlertCircle className="w-5 h-5 text-blue-600" />,
+    success: <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" aria-hidden="true" />,
+    error: <AlertCircle className="w-5 h-5 text-rose-400 shrink-0" aria-hidden="true" />,
+    info: <AlertCircle className="w-5 h-5 text-[#f9b17a] shrink-0" aria-hidden="true" />,
   };
 
   const colors = {
-    success: 'border-emerald-200 bg-emerald-50',
-    error: 'border-red-200 bg-red-50',
-    info: 'border-blue-200 bg-blue-50',
+    success: 'border-emerald-500/40 bg-[#16192b] text-white',
+    error: 'border-rose-500/40 bg-[#16192b] text-white',
+    info: 'border-[#f9b17a]/40 bg-[#16192b] text-white',
   };
 
   return (
     <div
+      role={type === 'error' ? 'alert' : 'status'}
+      aria-live={type === 'error' ? 'assertive' : 'polite'}
       className={cn(
-        'fixed top-4 right-4 z-50 flex items-center gap-3 p-4 rounded-lg border shadow-lg transition-all duration-300',
+        'fixed bottom-6 right-6 z-50 flex items-center gap-3 p-4 rounded-2xl border shadow-2xl backdrop-blur-xl transition-all duration-300 max-w-md',
         colors[type],
-        isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'
+        isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
       )}
     >
       {icons[type]}
-      <p className="text-sm font-medium text-zinc-900">{message}</p>
+      <p className="text-xs font-semibold text-white leading-snug flex-1">{message}</p>
       <button
+        type="button"
         onClick={() => {
           setIsVisible(false);
           setTimeout(onClose, 300);
         }}
-        className="ml-2 text-zinc-500 hover:text-zinc-700"
+        aria-label="Dismiss notification"
+        className="ml-2 text-[#9ba3c9] hover:text-white p-1 rounded-lg hover:bg-[#2d3250] focus:outline-none focus:ring-2 focus:ring-[#f9b17a]"
       >
-        <X className="w-4 h-4" />
+        <X className="w-4 h-4" aria-hidden="true" />
       </button>
     </div>
   );
@@ -76,3 +80,4 @@ export function useToast() {
     removeToast,
   };
 }
+

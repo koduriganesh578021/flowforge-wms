@@ -1,75 +1,68 @@
-# React + TypeScript + Vite
+# FlowForge WMS Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Production React + TypeScript interface for FlowForge WMS decision orchestration.
 
-Currently, two official plugins are available:
+## Features & Navigation
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Command Center (`/`)**: Real-time warehouse telemetry, active KPI counters, stage bottleneck metrics, priority actions feed, and exception alerts.
+- **Orders Pipeline (`/orders`)**: Filterable and searchable customer order list with dynamic SLA risk badges and order code search.
+- **Order Detail (`/orders/:orderId`)**: In-depth order SKU allocations, bin verification confidence scores, audit history, and stage action buttons.
+- **Inventory & Bins (`/inventory`)**: SKU stock on-hand, allocated units, damaged inventory, and recommended replenishment thresholds.
+- **Fulfillment Board (`/fulfillment`)**: Real-time Kanban board across picking, packing, quality inspection, and dispatch stages.
+- **Exceptions Feed (`/exceptions`)**: Complete disruption log with filterable policy modes (`AUTO_EXECUTED`, `APPROVAL_REQUIRED`, `ESCALATE`) and resolution forms.
+- **Scenario Simulator (`/simulate`)**: Interactive disruption injector (Rush Orders, Damaged Goods, Cycle Discrepancies, QC Failures) with instant before/after decision briefs.
+- **Command Palette (<kbd>⌘K</kbd> / <kbd>Ctrl+K</kbd>)**: Quick search across navigation routes and warehouse actions.
 
-## React Compiler
+## Tech Stack & Architecture
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **React 19** with **TypeScript 5.8+**
+- **Vite** for fast bundling and production builds
+- **Tailwind CSS v4** with a custom dark glassmorphism design system (`#16192b`, `#2d3250`, `#424769`, `#f9b17a`)
+- **Radix UI** primitives for accessible dialogs and command palette
+- **Axios** with explicit 15-second request timeouts to prevent stalled loading states
+- **WCAG 2.1 AA** compliant contrast, semantic tables, keyboard trap navigation, and `aria-live` polite screen-reader announcements
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 1. Configure Environment
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Copy `.env.example` to `.env`:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```bash
+cp .env.example .env
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Set the backend API base URL:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
+
+### 2. Install & Run
+
+```bash
+npm install
+npm run dev
+```
+
+### 3. Build & Test Commands
+
+```bash
+# Typecheck TypeScript files
+npm run typecheck
+
+# Lint with ESLint
+npm run lint
+
+# Production build
+npm run build
+
+# Preview production build locally
+npm run preview
+```
+
+## Vercel Deployment
+
+This project includes a `vercel.json` rewrite configuration that enables single-page application (SPA) routing for all sub-routes without 404 errors on page refresh.
+
+Ensure `VITE_API_BASE_URL` is configured in your Vercel Project Settings under Environment Variables.

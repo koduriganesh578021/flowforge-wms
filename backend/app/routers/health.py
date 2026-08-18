@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.database import engine
 from app.schemas.common import HealthResponse
 
 router = APIRouter()
@@ -7,5 +8,5 @@ router = APIRouter()
 
 @router.get("/health", response_model=HealthResponse)
 def health_check() -> HealthResponse:
-    return HealthResponse(status="ok", service="flowforge-wms-backend", database="sqlite")
+    return HealthResponse(status="ok", service="flowforge-wms-backend", database=engine.name)
 

@@ -7,62 +7,63 @@ interface BottleneckCardProps {
 }
 
 export function BottleneckCard({ bottleneck }: BottleneckCardProps) {
-  const getSeverityColor = (severity: string) => {
+  const getSeverityStyle = (severity: string) => {
     switch (severity) {
       case 'HIGH':
-        return 'border-red-200 bg-red-50';
+        return 'border-l-rose-500 bg-rose-950/20 shadow-rose-500/5';
       case 'MEDIUM':
-        return 'border-amber-200 bg-amber-50';
+        return 'border-l-amber-500 bg-amber-950/20 shadow-amber-500/5';
       case 'LOW':
-        return 'border-emerald-200 bg-emerald-50';
+        return 'border-l-emerald-500 bg-emerald-950/20 shadow-emerald-500/5';
       default:
-        return 'border-zinc-200 bg-zinc-50';
+        return 'border-l-[#676f9d] bg-[#2d3250]/40';
     }
   };
 
   const getSeverityBadge = (severity: string) => {
     switch (severity) {
       case 'HIGH':
-        return <Badge variant="critical">High</Badge>;
+        return <Badge variant="critical">High Severity</Badge>;
       case 'MEDIUM':
-        return <Badge variant="warning">Medium</Badge>;
+        return <Badge variant="warning">Medium Severity</Badge>;
       case 'LOW':
-        return <Badge variant="success">Low</Badge>;
+        return <Badge variant="success">Low Severity</Badge>;
       default:
-        return <Badge variant="neutral">{severity}</Badge>;
+        return <Badge variant="neutral">Severity: {severity}</Badge>;
     }
   };
 
   return (
-    <Card className={`border-l-4 ${getSeverityColor(bottleneck.severity)}`}>
-      <CardContent className="p-4">
+    <Card className={`border-l-4 glass-card ${getSeverityStyle(bottleneck.severity)}`}>
+      <CardContent className="p-6">
         <div className="space-y-3">
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-zinc-900 font-mono">
-              {bottleneck.stage} bottleneck
+            <h3 className="text-sm font-bold text-white font-heading capitalize tracking-wide flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-[#f9b17a] animate-ping" aria-hidden="true" />
+              {bottleneck.stage} Bottleneck
             </h3>
             {getSeverityBadge(bottleneck.severity)}
           </div>
 
           {/* Queue Info */}
-          <div className="text-sm text-zinc-700">
-            <span className="font-mono font-medium">{bottleneck.queue_size}</span> orders waiting · average wait{' '}
-            <span className="font-mono font-medium">{bottleneck.average_wait_minutes}</span> minutes
+          <div className="text-sm text-[#d1d5db]">
+            <span className="font-mono font-bold text-white text-base">{bottleneck.queue_size}</span> orders queued · avg wait{' '}
+            <span className="font-mono font-bold text-[#f9b17a]">{bottleneck.average_wait_minutes}</span> min
           </div>
 
           {/* Capacity Info (if available) */}
           {bottleneck.capacity_orders_per_hour && bottleneck.incoming_rate_orders_per_hour && (
-            <div className="text-xs text-zinc-600">
-              Capacity: <span className="font-mono">{bottleneck.capacity_orders_per_hour}</span> orders/hour · incoming rate:{' '}
-              <span className="font-mono">{bottleneck.incoming_rate_orders_per_hour}</span> orders/hour
+            <div className="text-xs text-[#d1d5db] font-mono bg-[#16192b] p-2.5 rounded-xl border border-[#424769]/60">
+              Capacity: <span className="text-[#f9b17a] font-semibold">{bottleneck.capacity_orders_per_hour}</span>/hr · Incoming:{' '}
+              <span className="text-white font-semibold">{bottleneck.incoming_rate_orders_per_hour}</span>/hr
             </div>
           )}
 
           {/* Recommendation */}
-          <div className="pt-2 border-t border-zinc-200">
-            <p className="text-xs text-zinc-500 mb-1">Recommended action:</p>
-            <p className="text-sm text-zinc-900">{bottleneck.recommendation}</p>
+          <div className="pt-3 border-t border-[#424769]/50">
+            <p className="text-[11px] font-bold text-[#9ba3c9] uppercase tracking-wider mb-1">Recommended Action</p>
+            <p className="text-xs text-white leading-relaxed font-medium">{bottleneck.recommendation}</p>
           </div>
         </div>
       </CardContent>

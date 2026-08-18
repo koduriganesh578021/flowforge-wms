@@ -13,9 +13,9 @@ import { StatusTimeline } from '../components/StatusTimeline';
 import { ExceptionReportModal } from '../components/ExceptionReportModal';
 import { DecisionAlert } from '../components/DecisionAlert';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 import { ArrowLeft, Play, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { formatPriorityScore, toNumber } from '../lib/utils';
-import { Loader2 } from 'lucide-react';
 import { Toast, useToast } from '../components/Toast';
 
 function getActionErrorMessage(error: unknown, fallback: string): string {
@@ -106,7 +106,7 @@ export function OrderDetail() {
     } catch (err) {
       console.error('Error prioritizing order:', err);
       setActionError(getActionErrorMessage(err, 'Failed to run priority check. Please try again.'));
-      setTimeout(() => setActionError(null), 5000); // Clear error after 5 seconds
+      setTimeout(() => setActionError(null), 5000);
     } finally {
       setIsPrioritizing(false);
     }
@@ -120,11 +120,9 @@ export function OrderDetail() {
       setActionError(null);
       const result = await ordersApi.allocateOrder(order.id);
       
-      // Update local state with API response
       setAllocationResult(result);
       showToast('Allocation completed.', 'success');
       
-      // Reload order to get updated allocation state
       await loadOrder(order.id, true);
       
     } catch (err) {
@@ -136,7 +134,7 @@ export function OrderDetail() {
       }
       console.error('Error allocating order:', err);
       setActionError(getActionErrorMessage(err, 'Failed to run allocation. Please try again.'));
-      setTimeout(() => setActionError(null), 5000); // Clear error after 5 seconds
+      setTimeout(() => setActionError(null), 5000);
     } finally {
       setIsAllocating(false);
     }
@@ -162,7 +160,6 @@ export function OrderDetail() {
     try {
       const result = await eventsApi.submitEvent(payload);
       setDecisionResult(result);
-      // Reload order to get updated state
       if (order) {
         await loadOrder(order.id, true);
       }
@@ -182,71 +179,90 @@ export function OrderDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-zinc-500">Loading order details...</div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="flex items-center justify-center h-64 glass-card rounded-2xl" aria-busy="true">
+          <div className="text-[#9ba3c9] font-mono flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin text-[#f9b17a]" aria-hidden="true" />
+            Loading order details...
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error || !order) {
     return (
-      <Card>
-        <CardContent className="p-6">
-          <div className="text-red-600 mb-4">{error || 'Order not found'}</div>
-          <button
-            onClick={() => navigate('/orders')}
-            className="px-4 py-2 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition-colors"
-          >
-            Back to Orders
-          </button>
-        </CardContent>
-      </Card>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div role="alert" aria-live="assertive">
+          <Card className="border-rose-500/40 bg-rose-950/40 text-rose-200">
+            <CardContent className="p-6">
+              <div className="text-rose-300 font-semibold mb-4">{error || 'Order not found'}</div>
+              <Button
+                variant="secondary"
+                onClick={() => navigate('/orders')}
+                aria-label="Return to orders list"
+              >
+                Back to Orders
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button
+            type="button"
             onClick={() => navigate('/orders')}
-            className="p-2 hover:bg-zinc-200 rounded-md transition-colors"
+            aria-label="Back to orders list"
+            className="p-2.5 bg-[#2d3250] hover:bg-[#424769] border border-[#424769] text-white rounded-xl transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#f9b17a]"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-5 h-5" aria-hidden="true" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900 font-mono">{order.order_code}</h1>
-            <p className="text-sm text-zinc-600 mt-1">{order.customer_name}</p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white font-mono flex items-center gap-2">
+              Order {order.order_code}
+            </h1>
+            <p className="text-xs text-[#9ba3c9] mt-0.5 font-medium">{order.customer_name}</p>
           </div>
         </div>
-        <button
+        <Button
+          variant="secondary"
           onClick={() => void loadOrder(order.id, true)}
           disabled={isSyncing || isAllocating}
-          className="inline-flex items-center gap-2 rounded-md bg-zinc-200 px-3 py-2 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label={`Sync state for order ${order.order_code}`}
+          className="text-xs"
         >
-          <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-          {isSyncing ? 'Syncing...' : 'Sync current state'}
-        </button>
+          <RefreshCw className={`w-4 h-4 text-[#f9b17a] mr-1.5 ${isSyncing ? 'animate-spin' : ''}`} aria-hidden="true" />
+          {isSyncing ? 'Syncing...' : 'Sync state'}
+        </Button>
       </div>
 
       {/* Action Error Alert */}
       {actionError && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-4">
-            <p className="text-sm text-red-800">{actionError}</p>
-            {priorityRequired && (
-              <button
-                onClick={handlePrioritize}
-                disabled={isPrioritizing || isAllocating || terminal || Boolean(order.priority_label)}
-                className="mt-3 inline-flex items-center gap-2 px-3 py-2 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50"
-              >
-                <Play className="w-4 h-4" />
-                {isPrioritizing ? 'Running...' : order.priority_label ? 'Priority Calculated' : 'Run Priority Check'}
-              </button>
-            )}
-          </CardContent>
-        </Card>
+        <div role="alert" aria-live="assertive">
+          <Card className="border-rose-500/40 bg-rose-950/40 text-rose-200">
+            <CardContent className="p-4">
+              <p className="text-sm font-semibold text-rose-300">{actionError}</p>
+              {priorityRequired && (
+                <button
+                  type="button"
+                  onClick={handlePrioritize}
+                  disabled={isPrioritizing || isAllocating || terminal || Boolean(order.priority_label)}
+                  className="mt-3 inline-flex items-center gap-2 px-3 py-2 bg-[#f9b17a] text-[#16192b] font-bold rounded-xl hover:bg-[#fa9d58] transition-colors disabled:opacity-50"
+                >
+                  <Play className="w-4 h-4 fill-[#16192b]" aria-hidden="true" />
+                  {isPrioritizing ? 'Running...' : order.priority_label ? 'Priority Calculated' : 'Run Priority Check'}
+                </button>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {/* Decision Result Alert */}
@@ -263,24 +279,26 @@ export function OrderDetail() {
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Order Information */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Order Information</CardTitle>
+          <Card className="glass-card">
+            <CardHeader className="pb-3 border-b border-[#424769]/50">
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-white font-heading">
+                Order Information
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+            <CardContent className="pt-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs font-mono">
                 <div>
-                  <p className="text-zinc-600 mb-1">Status</p>
-                  <Badge variant="active">{order.status}</Badge>
+                  <p className="text-[#9ba3c9] mb-1 uppercase font-bold text-[10px]">Status</p>
+                  <Badge variant="active">Status: {order.status}</Badge>
                 </div>
                 <div>
-                  <p className="text-zinc-600 mb-1">Due Date</p>
-                  <p className="font-mono text-xs">
+                  <p className="text-[#9ba3c9] mb-1 uppercase font-bold text-[10px]">Due Date</p>
+                  <p className="text-white font-bold">
                     {order.due_at ? formatDate(order.due_at) : 'Not set'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-zinc-600 mb-1">Risk Status</p>
+                  <p className="text-[#9ba3c9] mb-1 uppercase font-bold text-[10px]">Risk Status</p>
                   {order.risk_status ? (
                     <Badge 
                       variant={
@@ -288,70 +306,59 @@ export function OrderDetail() {
                         order.risk_status === 'At Risk' ? 'warning' : 'success'
                       }
                     >
-                      {order.risk_status}
+                      Risk: {order.risk_status}
                     </Badge>
                   ) : (
-                    <Badge variant="neutral">Safe</Badge>
+                    <Badge variant="neutral">Risk: Safe</Badge>
                   )}
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Order Items */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Order Items</CardTitle>
+          {/* Order Items Table */}
+          <Card className="glass-card overflow-hidden">
+            <CardHeader className="pb-3 border-b border-[#424769]/50">
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-white font-heading">
+                Order SKU Line Items
+              </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full text-left border-collapse">
+                  <caption className="sr-only">
+                    Order line items with requested, allocated, unfulfilled, picked, and dispatched quantities
+                  </caption>
                   <thead>
-                    <tr className="border-b border-zinc-200">
-                      <th className="text-left p-2 text-xs font-medium text-zinc-600 uppercase">
-                        SKU ID
-                      </th>
-                      <th className="text-left p-2 text-xs font-medium text-zinc-600 uppercase">
-                        Requested
-                      </th>
-                      <th className="text-left p-2 text-xs font-medium text-zinc-600 uppercase">
-                        Allocated
-                      </th>
-                      <th className="text-left p-2 text-xs font-medium text-zinc-600 uppercase">
-                        Unfulfilled
-                      </th>
-                      <th className="text-left p-2 text-xs font-medium text-zinc-600 uppercase">
-                        Picked
-                      </th>
-                      <th className="text-left p-2 text-xs font-medium text-zinc-600 uppercase">
-                        Dispatched
-                      </th>
+                    <tr className="border-b border-[#424769]/60 bg-[#16192b]/80 text-[#9ba3c9] text-xs font-bold uppercase tracking-wider font-mono">
+                      <th scope="col" className="p-3">SKU ID</th>
+                      <th scope="col" className="p-3">Requested</th>
+                      <th scope="col" className="p-3">Allocated</th>
+                      <th scope="col" className="p-3">Unfulfilled</th>
+                      <th scope="col" className="p-3">Picked</th>
+                      <th scope="col" className="p-3">Dispatched</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-[#424769]/40 text-xs font-mono">
                     {order.items.map((item) => (
-                      <tr key={item.id} className="border-b border-zinc-100">
-                        <td className="p-2">
-                          <span className="font-mono text-sm">{item.sku_id}</span>
+                      <tr key={item.id} className="hover:bg-[#424769]/30 transition-colors">
+                        <td className="p-3">
+                          <strong className="text-white">#{item.sku_id}</strong>
                         </td>
-                        <td className="p-2">
-                          <span className="font-mono text-sm">{toNumber(item.quantity_requested)}</span>
+                        <td className="p-3 text-white font-bold">
+                          {toNumber(item.quantity_requested)}
                         </td>
-                        <td className="p-2">
-                          <span className="font-mono text-sm text-emerald-600">
-                            {toNumber(item.quantity_allocated)}
-                          </span>
+                        <td className="p-3 text-emerald-400 font-bold">
+                          {toNumber(item.quantity_allocated)}
                         </td>
-                        <td className="p-2">
-                          <span className="font-mono text-sm text-red-600">
-                            {toNumber(item.quantity_requested) - toNumber(item.quantity_allocated)}
-                          </span>
+                        <td className="p-3 text-rose-400 font-bold">
+                          {toNumber(item.quantity_requested) - toNumber(item.quantity_allocated)}
                         </td>
-                        <td className="p-2">
-                          <span className="font-mono text-sm">{toNumber(item.quantity_picked)}</span>
+                        <td className="p-3 text-white">
+                          {toNumber(item.quantity_picked)}
                         </td>
-                        <td className="p-2">
-                          <span className="font-mono text-sm">{toNumber(item.quantity_dispatched)}</span>
+                        <td className="p-3 text-white">
+                          {toNumber(item.quantity_dispatched)}
                         </td>
                       </tr>
                     ))}
@@ -370,82 +377,103 @@ export function OrderDetail() {
           )}
         </div>
 
-        {/* Sidebar */}
+        {/* Sidebar Actions & History */}
         <div className="space-y-6">
           {/* Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Actions</CardTitle>
+          <Card className="glass-card">
+            <CardHeader className="pb-3 border-b border-[#424769]/50">
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-white font-heading">
+                Operational Actions
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <button
+            <CardContent className="space-y-3 pt-4">
+              <Button
+                variant="secondary"
                 onClick={handlePrioritize}
                 disabled={isPrioritizing}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label={`Run priority calculation for order ${order.order_code}`}
+                className="w-full justify-center"
               >
-                <Play className="w-4 h-4" />
+                <Play className="w-4 h-4 text-[#f9b17a]" aria-hidden="true" />
                 {isPrioritizing ? 'Running...' : 'Run Priority Check'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={handleAllocate}
                 disabled={isAllocating || isPrioritizing || terminal || !order.priority_score || ['Allocated', 'Ready to Pick', 'Picking', 'Picked', 'Packing', 'Quality Check', 'Ready to Dispatch', 'Dispatched'].includes(order.status)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label={`Run automated inventory allocation for order ${order.order_code}`}
+                className="w-full justify-center"
               >
-                <CheckCircle className="w-4 h-4" />
+                <CheckCircle className="w-4 h-4 fill-[#16192b]" aria-hidden="true" />
                 {isAllocating ? 'Running...' : 'Run Allocation'}
-              </button>
+              </Button>
               {(STATUS_ACTIONS[order.status] || []).map(action => (
-                <button key={action.action} onClick={() => void handleTransition(action)} disabled={Boolean(isTransitioning) || isAllocating || isPrioritizing} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                  {isTransitioning === action.action && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {isTransitioning === action.action ? 'Processing...' : action.label}
-                </button>
+                <Button
+                  key={action.action}
+                  variant={action.variant}
+                  loading={isTransitioning === action.action}
+                  onClick={() => void handleTransition(action)}
+                  disabled={Boolean(isTransitioning) || isAllocating || isPrioritizing}
+                  aria-label={`${action.label} for order ${order.order_code}`}
+                  className="w-full justify-center"
+                >
+                  {action.label}
+                </Button>
               ))}
-              <button
+              <Button
+                variant="danger"
                 onClick={() => setIsExceptionModalOpen(true)}
                 disabled={Boolean(terminal)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label={`Report disruption or exception for order ${order.order_code}`}
+                className="w-full justify-center"
               >
-                <AlertTriangle className="w-4 h-4" />
-                Report Issue
-              </button>
+                <AlertTriangle className="w-4 h-4" aria-hidden="true" />
+                Report Disruption / Issue
+              </Button>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Current inventory allocation</CardTitle>
+          {/* Current Inventory Allocation */}
+          <Card className="glass-card">
+            <CardHeader className="pb-3 border-b border-[#424769]/50">
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-white font-heading">
+                SKU Inventory Status
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2">
+            <CardContent className="space-y-2 pt-4">
               {relevantInventory.length === 0 ? (
-                <p className="text-sm text-zinc-500">No inventory records found for this order&apos;s SKUs.</p>
+                <p className="text-xs text-[#9ba3c9] italic">No inventory records found for this order&apos;s SKUs.</p>
               ) : relevantInventory.map(item => (
-                <div key={item.sku_id} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="font-mono text-zinc-700">{item.sku_code}</span>
-                  <span className="text-right text-zinc-600">Allocated {item.allocated} · Available {item.available_stock}</span>
+                <div key={item.sku_id} className="flex items-center justify-between gap-3 text-xs font-mono p-2 rounded-lg bg-[#16192b] border border-[#424769]/50">
+                  <span className="text-white font-bold">{item.sku_code}</span>
+                  <span className="text-right text-[#d1d5db]">
+                    Alloc: <strong className="text-emerald-400">{item.allocated}</strong> · Avail: <strong className="text-white">{item.available_stock}</strong>
+                  </span>
                 </div>
               ))}
             </CardContent>
           </Card>
 
           {/* Priority Score */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base font-semibold">Priority Score</CardTitle>
+          <Card className="glass-card">
+            <CardHeader className="pb-3 border-b border-[#424769]/50">
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-white font-heading">
+                Priority Score
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-center">
-                <p className="text-4xl font-bold font-mono text-zinc-900">
-                  {formatPriorityScore(order.priority_score)}
-                </p>
-                {order.priority_label && order.priority_score !== null && (
+            <CardContent className="pt-4 text-center">
+              <p className="text-4xl font-extrabold font-mono text-white">
+                {formatPriorityScore(order.priority_score)}
+              </p>
+              {order.priority_label && order.priority_score !== null && (
+                <div className="mt-2">
                   <Badge 
                     variant={order.priority_score >= 80 ? 'critical' : order.priority_score >= 60 ? 'warning' : 'neutral'}
-                    className="mt-2"
                   >
-                    {order.priority_label}
+                    Priority: {order.priority_label}
                   </Badge>
-                )}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -468,3 +496,4 @@ export function OrderDetail() {
     </div>
   );
 }
+
