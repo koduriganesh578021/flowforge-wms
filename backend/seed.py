@@ -131,6 +131,27 @@ def seed() -> None:
                 payload=row["payload"], reported_by=row["reported_by"], created_at=as_datetime(row["created_at"]),
             ))
 
+        if session.bind.dialect.name == "postgresql":
+            for table in (
+                "products",
+                "locations",
+                "inventory",
+                "orders",
+                "order_items",
+                "pick_tasks",
+                "events",
+                "decisions",
+            ):
+                try:
+                    session.execute(
+                        text(
+                            f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+                            f"COALESCE((SELECT MAX(id) FROM {table}), 0) + 1, false)"
+                        )
+                    )
+                except Exception:
+                    pass
+
     print(
         "FlowForge demo data seeded successfully: "
         f"{len(scenario['products'])} SKUs, {len(scenario['locations'])} bins, "

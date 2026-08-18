@@ -21,7 +21,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -85,6 +86,30 @@ SAMPLE_EXCEPTIONS = (
 )
 
 
+def _sync_postgres_sequences(session) -> None:
+    """Ensure PostgreSQL primary key sequences match MAX(id) to prevent unique constraint collisions."""
+    if session.bind.dialect.name == "postgresql":
+        for table in (
+            "products",
+            "locations",
+            "inventory",
+            "orders",
+            "order_items",
+            "pick_tasks",
+            "events",
+            "decisions",
+        ):
+            try:
+                session.execute(
+                    text(
+                        f"SELECT setval(pg_get_serial_sequence('{table}', 'id'), "
+                        f"COALESCE((SELECT MAX(id) FROM {table}), 0) + 1, false)"
+                    )
+                )
+            except Exception:
+                pass
+
+
 def _require_seed_references(session, sample: dict) -> None:
     inventory = session.scalar(select(Inventory).where(
         Inventory.sku_id == sample["sku_id"], Inventory.location_id == sample["location_id"],
@@ -111,6 +136,8 @@ def _require_seed_references(session, sample: dict) -> None:
 
 def seed() -> None:
     with SessionLocal.begin() as session:
+        _sync_postgres_sequences(session)
+
         for sample in SAMPLE_EXCEPTIONS:
             _require_seed_references(session, sample)
             event = session.scalar(select(Event).where(
@@ -129,19 +156,40 @@ def seed() -> None:
                     payload=json.dumps(payload, sort_keys=True), reported_by=SEED_ACTOR,
                     created_at=sample["created_at"],
                 )
-                session.add(event)
-                session.flush()
+                try:
+                    with session.begin_nested():
+                        session.add(event)
+                        session.flush()
+                except IntegrityError:
+                    _sync_postgres_sequences(session)
+                    event = session.scalar(select(Event).where(
+                        Event.reported_by == SEED_ACTOR,
+                        Event.payload.like(f'%"seed_key": "{sample["seed_key"]}"%'),
+                    ))
+                    if event is None:
+                        # Retry insert after syncing sequences
+                        session.add(event)
+                        session.flush()
 
-            decision = session.scalar(select(Decision).where(
-                Decision.event_id == event.id, Decision.decision_type == DecisionType.EXCEPTION,
-            ))
-            if decision is None:
-                session.add(Decision(
-                    event_id=event.id, order_id=sample["order_id"], sku_id=sample["sku_id"],
-                    decision_type=DecisionType.EXCEPTION, decision_mode=sample["decision_mode"],
-                    status=sample["decision_status"], explanation=sample["explanation"], actor=SEED_ACTOR,
-                    created_at=sample["created_at"],
+            if event is not None:
+                decision = session.scalar(select(Decision).where(
+                    Decision.event_id == event.id, Decision.decision_type == DecisionType.EXCEPTION,
                 ))
+                if decision is None:
+                    decision = Decision(
+                        event_id=event.id, order_id=sample["order_id"], sku_id=sample["sku_id"],
+                        decision_type=DecisionType.EXCEPTION, decision_mode=sample["decision_mode"],
+                        status=sample["decision_status"], explanation=sample["explanation"], actor=SEED_ACTOR,
+                        created_at=sample["created_at"],
+                    )
+                    try:
+                        with session.begin_nested():
+                            session.add(decision)
+                            session.flush()
+                    except IntegrityError:
+                        _sync_postgres_sequences(session)
+
+        _sync_postgres_sequences(session)
 
     print(f"Seeded {len(SAMPLE_EXCEPTIONS)} sample exception event(s) (existing entries were preserved).")
 
