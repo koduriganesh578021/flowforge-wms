@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.database import Base
 from app.models.entities import Inventory, Location, Order, OrderItem, PickTask, Product
 from app.models.enums import CustomerTier, OrderStatus, PickTaskStatus, ShippingType
+from app.services.blocking import OrderBlockedError
 from app.services.order_workflow import confirm_order_picked, dispatch_order, transition_order
 
 
@@ -80,7 +81,6 @@ def test_dispatch_rejects_incomplete_pick(session_factory):
     order.status = OrderStatus.READY_TO_DISPATCH
     db.commit()
 
-    with pytest.raises(HTTPException, match="fully allocated and picked") as exc:
+    with pytest.raises(OrderBlockedError, match="not fully allocated and picked"):
         dispatch_order(db, 1)
-    assert exc.value.status_code == 409
     db.close()

@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.entities import Inventory, Order, OrderItem, PickTask
 from app.models.enums import OrderStatus, PickTaskStatus
+from app.schemas.validation_errors import AllocationBlockReason, AllocationBlockResponse
+from app.services.blocking import OrderBlockedError
 
 
 ORDER_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
@@ -44,6 +46,8 @@ def transition_order(db: Session, order_id: int, new_status: OrderStatus, actor:
     order = db.get(Order, order_id)
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+    if order.status in {OrderStatus.EXCEPTION_REVIEW, OrderStatus.REWORK_REQUIRED} and not can_transition(order.status, new_status):
+        raise _exception_block(order)
     if not can_transition(order.status, new_status):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Invalid status transition")
     order.status = new_status
@@ -55,12 +59,20 @@ def transition_order(db: Session, order_id: int, new_status: OrderStatus, actor:
 
 def confirm_order_picked(db: Session, order_id: int, actor: str = "system") -> Order:
     order = _order_with_pick_tasks(db, order_id)
+    if order.status in {OrderStatus.EXCEPTION_REVIEW, OrderStatus.REWORK_REQUIRED}:
+        raise _exception_block(order)
     if order.status != OrderStatus.PICKING:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Order must be Picking before confirmation")
 
     for item in order.items:
         if item.quantity_allocated < item.quantity_requested:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Order contains an incompletely allocated line")
+            raise OrderBlockedError(AllocationBlockResponse(order_id=order.id, reasons=[AllocationBlockReason(
+                reason_code="UNFULFILLED_LINES",
+                message=f"Cannot confirm picking: SKU {item.sku_id} still needs inventory.",
+                details={"sku_id": item.sku_id, "quantity_requested": item.quantity_requested,
+                         "quantity_allocated": item.quantity_allocated,
+                         "quantity_missing": item.quantity_requested - item.quantity_allocated},
+            )]))
         remaining = item.quantity_allocated
         tasks = sorted(item.pick_tasks, key=lambda task: (task.sequence is None, task.sequence, task.id))
         if not tasks:
@@ -84,12 +96,22 @@ def confirm_order_picked(db: Session, order_id: int, actor: str = "system") -> O
 
 def dispatch_order(db: Session, order_id: int, actor: str = "system") -> Order:
     order = _order_with_pick_tasks(db, order_id)
+    if order.status == OrderStatus.DISPATCHED:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Order has already been dispatched")
+    if order.status in {OrderStatus.EXCEPTION_REVIEW, OrderStatus.REWORK_REQUIRED}:
+        raise _exception_block(order)
     if order.status != OrderStatus.READY_TO_DISPATCH:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Order must be Ready to Dispatch")
 
     for item in order.items:
         if item.quantity_picked != item.quantity_requested or item.quantity_allocated != item.quantity_requested:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="All order lines must be fully allocated and picked before dispatch")
+            raise OrderBlockedError(AllocationBlockResponse(order_id=order.id, reasons=[AllocationBlockReason(
+                reason_code="UNFULFILLED_LINES",
+                message=f"Cannot dispatch: SKU {item.sku_id} is not fully allocated and picked.",
+                details={"sku_id": item.sku_id, "quantity_requested": item.quantity_requested,
+                         "quantity_allocated": item.quantity_allocated, "quantity_picked": item.quantity_picked,
+                         "quantity_missing": item.quantity_requested - item.quantity_allocated},
+            )]))
         if item.quantity_dispatched:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Order line has already been dispatched")
 
@@ -101,7 +123,13 @@ def dispatch_order(db: Session, order_id: int, actor: str = "system") -> Order:
                 Inventory.sku_id == item.sku_id, Inventory.location_id == task.source_location_id,
             ))
             if inventory is None or inventory.on_hand < task.quantity_confirmed or inventory.allocated < task.quantity_confirmed:
-                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Insufficient committed inventory for dispatch")
+                available = 0 if inventory is None else max(0, inventory.on_hand - inventory.allocated - inventory.damaged)
+                raise OrderBlockedError(AllocationBlockResponse(order_id=order.id, reasons=[AllocationBlockReason(
+                    reason_code="INSUFFICIENT_COMMITTED_INVENTORY",
+                    message=f"Cannot dispatch SKU {item.sku_id}: the selected bin no longer has committed inventory.",
+                    details={"sku_id": item.sku_id, "bin_id": task.source_location_id,
+                             "quantity_required": task.quantity_confirmed, "quantity_available": available},
+                )]))
             # Allocation reserves stock but does not reduce on_hand. Dispatch consumes it once,
             # clearing the corresponding reservation so a later operation cannot deduct it again.
             inventory.on_hand -= task.quantity_confirmed
@@ -122,3 +150,12 @@ def _order_with_pick_tasks(db: Session, order_id: int) -> Order:
     if order is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     return order
+
+
+def _exception_block(order: Order) -> OrderBlockedError:
+    """Use when an exception-state order attempts an operation that requires review completion."""
+    return OrderBlockedError(AllocationBlockResponse(order_id=order.id, reasons=[AllocationBlockReason(
+        reason_code="ORDER_IN_EXCEPTION_REVIEW",
+        message="Cannot continue fulfillment while this order is under exception review.",
+        details={"status": order.status.value},
+    )]))

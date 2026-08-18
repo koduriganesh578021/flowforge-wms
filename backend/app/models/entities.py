@@ -56,7 +56,11 @@ class Location(Base):
 
 class Inventory(Base):
     __tablename__ = "inventory"
-    __table_args__ = (UniqueConstraint("sku_id", "location_id", name="uq_inventory_sku_location"),)
+    __table_args__ = (
+        UniqueConstraint("sku_id", "location_id", name="uq_inventory_sku_location"),
+        Index("idx_inventory_sku", "sku_id"),
+        Index("idx_inventory_location", "location_id"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     sku_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
@@ -158,6 +162,7 @@ class PickTask(Base):
 
 class Event(Base):
     __tablename__ = "events"
+    __table_args__ = (Index("idx_events_type_entity", "event_type", "sku_id", "location_id", "order_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     event_type: Mapped[EventType] = mapped_column(Enum(EventType), nullable=False)

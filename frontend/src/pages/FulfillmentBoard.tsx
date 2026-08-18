@@ -9,6 +9,7 @@ import { DecisionAlert } from '../components/DecisionAlert';
 import { eventsApi } from '../api/events';
 import type { EventPayload, DecisionResponse } from '../types';
 import { AlertTriangle } from 'lucide-react';
+import { Toast, useToast } from '../components/Toast';
 
 export function FulfillmentBoard() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -16,6 +17,7 @@ export function FulfillmentBoard() {
   const [error, setError] = useState<string | null>(null);
   const [isExceptionModalOpen, setIsExceptionModalOpen] = useState(false);
   const [decisionResult, setDecisionResult] = useState<DecisionResponse | null>(null);
+  const { toasts, showToast, removeToast } = useToast();
 
   const loadOrders = useCallback(async () => {
     try {
@@ -42,6 +44,7 @@ export function FulfillmentBoard() {
       await loadOrders();
     } catch (err) {
       console.error('Error submitting exception:', err);
+      showToast(`Exception report failed: ${err instanceof Error ? err.message : 'Unable to submit the report.'}`, 'error');
       throw err;
     }
   };
@@ -144,6 +147,7 @@ export function FulfillmentBoard() {
         onClose={() => setIsExceptionModalOpen(false)}
         onSubmit={handleExceptionSubmit}
       />
+      {toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}
     </div>
   );
 }

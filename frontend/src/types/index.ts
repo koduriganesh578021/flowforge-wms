@@ -151,7 +151,7 @@ export interface InventoryItem {
 
 // Exception and event payload types. These are type-only exports and must be
 // imported with `import type` so Vite does not look for runtime JS exports.
-export type EventType = 'ITEM_DAMAGED' | 'ITEM_MISSING' | 'QC_FAILED';
+export type EventType = 'ITEM_DAMAGED' | 'ITEM_MISSING' | 'QC_FAILED' | 'INVENTORY_DISCREPANCY';
 
 export interface EventPayload {
   event_type: EventType;
@@ -164,6 +164,11 @@ export interface EventPayload {
 }
 
 export type DecisionMode = 'AUTO_EXECUTED' | 'APPROVAL_REQUIRED' | 'ESCALATE';
+export type SimulateEventType = 'NEW_URGENT_ORDER' | 'ITEM_DAMAGED' | 'ITEM_MISSING' | 'QC_FAILURE';
+export type SimulationDecisionMode = DecisionMode | 'auto_executed' | 'approval_required' | 'escalate';
+export interface SimulateEventRequest { event_type: SimulateEventType; sku_id?: number; quantity?: number; bin_id?: number; order_id?: number; customer_name?: string; due_at?: string; note?: string; }
+export interface SimulationInventoryChange { sku_id: number; bin_id: number; field: string; before: number; after: number; }
+export interface SimulateEventResponse { event_type: SimulateEventType; summary: { created_order_id?: number; event_id?: number; decision_mode?: SimulationDecisionMode; affected_order_ids?: number[]; inventory_changes?: SimulationInventoryChange[]; initial_allocation_status?: string; priority_score?: number; priority_label?: string; new_order_status?: string; explanation: string; }; }
 
 export interface DecisionResponse {
   decision_id: number;
@@ -189,10 +194,16 @@ export interface ExceptionEvent {
   location_id?: number;
   order_id?: number;
   notes?: string;
+  resolution_note?: string;
   decision_mode: DecisionMode;
   explanation: string;
   timestamp: string;
   status: string; // e.g., 'Pending', 'Resolved', 'Escalated'
+}
+
+export interface ResolveExceptionRequest {
+  actor?: string;
+  note?: string;
 }
 
 // Valid transitions for each status
@@ -323,4 +334,50 @@ export interface Bottleneck {
   recommendation: string;
   capacity_orders_per_hour?: number;
   incoming_rate_orders_per_hour?: number;
+}
+
+// ===== Command Center Types =====
+
+export interface DashboardKPIs {
+  pending_orders: number;
+  critical_orders: number;
+  low_stock_skus: number;
+  open_exceptions: number;
+  average_fulfillment_time_minutes: number | null;
+}
+
+export interface BottleneckSummary {
+  stage: string;
+  queue_size: number;
+  average_wait_minutes: number;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  recommendation: string;
+}
+
+export interface ExceptionAlert {
+  id: number;
+  event_type: string;
+  severity: "HIGH" | "MEDIUM" | "LOW";
+  summary: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  context: Record<string, any>;
+  created_at: string;
+}
+
+export type TopActionType = "REORDER" | "EXCEPTION_REVIEW" | "ALLOCATE_ORDER" | string;
+
+export interface TopAction {
+  action_type: TopActionType;
+  title: string;
+  description: string;
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  context: Record<string, any>;
+}
+
+export interface CommandCenterResponse {
+  kpis: DashboardKPIs;
+  top_bottlenecks: BottleneckSummary[];
+  top_exceptions: ExceptionAlert[];
+  top_actions: TopAction[];
 }

@@ -7,9 +7,12 @@ interface StatusTimelineProps {
 
 export function StatusTimeline({ events }: StatusTimelineProps) {
   const hasEvents = events && events.length > 0;
-  
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+
+  const formatDate = (dateString: string | undefined | null) => {
+    if (!dateString) return '—';
+    const parsed = new Date(dateString);
+    if (Number.isNaN(parsed.getTime())) return '—';
+    return parsed.toLocaleString();
   };
   
   return (

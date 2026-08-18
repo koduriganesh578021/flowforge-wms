@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, PackagePlus } from 'lucide-react';
 import { inventoryApi } from '../api/inventory';
+import { SIMULATION_DATA_CHANGED_EVENT } from '../api/simulation';
 import type { InventoryItem } from '../types';
 import { Badge } from '../components/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -16,6 +17,12 @@ export function Inventory() {
     }).finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const refresh = () => { void inventoryApi.getInventory().then(setItems).catch(() => setError('Failed to refresh inventory.')); };
+    window.addEventListener(SIMULATION_DATA_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(SIMULATION_DATA_CHANGED_EVENT, refresh);
+  }, []);
+
   const atRisk = items.filter((item) => item.status === 'Stockout' || item.status === 'High Risk');
   const badge = (item: InventoryItem) => item.status === 'Stockout'
     ? <Badge variant="critical">Stockout</Badge>
@@ -24,7 +31,7 @@ export function Inventory() {
     : <Badge variant="success">Low Risk</Badge>;
 
   if (loading) return <div className="flex h-64 items-center justify-center text-zinc-500">Loading inventory...</div>;
-  if (error) return <Card><CardContent className="p-6 text-red-600">{error}</CardContent></Card>;
+  if (error) return <Card><CardContent className="p-6 text-red-600"><p>{error}</p><button onClick={() => { setLoading(true); setError(null); inventoryApi.getInventory().then(setItems).catch(() => setError('Failed to load inventory. Please check if the backend is running.')).finally(() => setLoading(false)); }} className="mt-4 rounded-md bg-zinc-900 px-4 py-2 text-sm text-white">Retry</button></CardContent></Card>;
   return (
     <div className="space-y-6">
       <div>
@@ -53,7 +60,7 @@ export function Inventory() {
             {['SKU', 'On-Hand', 'Allocated', 'Damaged', 'Available', 'Reorder Point', 'Projected Stock', 'Status'].map((heading) => <th key={heading} className="p-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-600">{heading}</th>)}
           </tr></thead><tbody>{items.map((item) => <tr key={item.sku_id} className="border-b border-zinc-100">
             <td className="p-3"><div className="font-mono text-sm font-medium">{item.sku_code}</div><div className="text-xs text-zinc-500">{item.name}</div></td>
-            <td className="p-3">{item.on_hand}</td><td className="p-3">{item.allocated}</td><td className="p-3">{item.damaged}</td><td className="p-3 font-semibold">{item.available_stock}</td><td className="p-3">{item.reorder_point ?? '—'}</td><td className="p-3">{item.projected_stock}</td><td className="p-3">{badge(item)}</td>
+            <td className="p-3">{item.on_hand}</td><td className="p-3">{item.allocated}</td><td className="p-3">{item.damaged}</td><td className="p-3 font-semibold">{Math.max(0, item.available_stock)}{item.available_stock < 0 && <span className="ml-2 text-xs text-red-600">Over-allocated</span>}</td><td className="p-3">{item.reorder_point ?? '—'}</td><td className="p-3">{item.projected_stock}</td><td className="p-3">{badge(item)}</td>
           </tr>)}</tbody></table></div>
         </CardContent>
       </Card>

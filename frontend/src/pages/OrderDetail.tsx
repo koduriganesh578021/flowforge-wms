@@ -1,10 +1,11 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { isAxiosError } from 'axios';
-import { ordersApi } from '../api/orders';
+import { ordersApi, OrdersApiError } from '../api/orders';
 import { eventsApi } from '../api/events';
-import type { OrderDetail, AllocationResponse, EventPayload, DecisionResponse } from '../types';
+import { inventoryApi } from '../api/inventory';
+import type { OrderDetail, AllocationResponse, EventPayload, DecisionResponse, InventoryItem, StatusAction } from '../types';
+import { STATUS_ACTIONS } from '../types';
 import { Badge } from '../components/Badge';
 import { DecisionCard } from '../components/DecisionCard';
 import { AuditTimeline } from '../components/AuditTimeline';
@@ -12,15 +13,31 @@ import { StatusTimeline } from '../components/StatusTimeline';
 import { ExceptionReportModal } from '../components/ExceptionReportModal';
 import { DecisionAlert } from '../components/DecisionAlert';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { ArrowLeft, Play, CheckCircle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Play, CheckCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { formatPriorityScore, toNumber } from '../lib/utils';
+import { Loader2 } from 'lucide-react';
+import { Toast, useToast } from '../components/Toast';
+
+function getActionErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof OrdersApiError && error.message.trim()) {
+    return error.message;
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallback;
+}
 
 export function OrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const [order, setOrder] = useState<OrderDetail | null>(null);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [allocationResult, setAllocationResult] = useState<AllocationResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPrioritizing, setIsPrioritizing] = useState(false);
   const [isAllocating, setIsAllocating] = useState(false);
@@ -29,18 +46,27 @@ export function OrderDetail() {
   const [auditEvents, setAuditEvents] = useState<string[]>([]);
   const [isExceptionModalOpen, setIsExceptionModalOpen] = useState(false);
   const [decisionResult, setDecisionResult] = useState<DecisionResponse | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState<string | null>(null);
+  const { toasts, showToast, removeToast } = useToast();
+  const terminal = order?.status === 'Dispatched' || order?.status === 'Cancelled';
 
-  const loadOrder = useCallback(async (id: number) => {
+  const loadOrder = useCallback(async (id: number, background = false) => {
     try {
-      setLoading(true);
+      if (background) setIsSyncing(true);
+      else setLoading(true);
       setError(null);
-      const data = await ordersApi.getOrderById(id);
-      setOrder(data);
+      const [orderData, inventoryData] = await Promise.all([
+        ordersApi.getOrderById(id),
+        inventoryApi.getInventory(),
+      ]);
+      setOrder(orderData);
+      setInventory(inventoryData);
     } catch (err) {
       setError('Failed to load order details. Please check if the backend is running.');
       console.error('Error loading order:', err);
     } finally {
-      setLoading(false);
+      if (background) setIsSyncing(false);
+      else setLoading(false);
     }
   }, []);
 
@@ -73,13 +99,13 @@ export function OrderDetail() {
         } : null);
         setAuditEvents(result.reasons);
         setPriorityRequired(false);
-        await loadOrder(order.id);
+        await loadOrder(order.id, true);
+        showToast('Priority check completed.', 'success');
       }
       
-      console.log('Priority result:', result);
     } catch (err) {
       console.error('Error prioritizing order:', err);
-      setActionError('Failed to run priority check. Please try again.');
+      setActionError(getActionErrorMessage(err, 'Failed to run priority check. Please try again.'));
       setTimeout(() => setActionError(null), 5000); // Clear error after 5 seconds
     } finally {
       setIsPrioritizing(false);
@@ -96,24 +122,40 @@ export function OrderDetail() {
       
       // Update local state with API response
       setAllocationResult(result);
+      showToast('Allocation completed.', 'success');
       
       // Reload order to get updated allocation state
-      await loadOrder(order.id);
+      await loadOrder(order.id, true);
       
-      console.log('Allocation result:', result);
     } catch (err) {
-      if (isAxiosError(err) && err.response?.status === 409 &&
-          err.response.data?.detail === 'Priority must be calculated before inventory allocation.') {
+      if (err instanceof OrdersApiError && err.status === 400 &&
+          err.message === 'Priority must be calculated before inventory allocation.') {
         setPriorityRequired(true);
-        setActionError('Priority calculation required before inventory allocation.');
+        setActionError(getActionErrorMessage(err, 'Priority calculation required before inventory allocation.'));
         return;
       }
       console.error('Error allocating order:', err);
-      setActionError('Failed to run allocation. Please try again.');
+      setActionError(getActionErrorMessage(err, 'Failed to run allocation. Please try again.'));
       setTimeout(() => setActionError(null), 5000); // Clear error after 5 seconds
     } finally {
       setIsAllocating(false);
     }
+  };
+
+  const handleTransition = async (action: StatusAction) => {
+    if (!order) return;
+    try {
+      setIsTransitioning(action.action);
+      const targetByAction: Record<string, Parameters<typeof ordersApi.transitionOrder>[1]> = {
+        start_picking: 'Picking', confirm_picked: 'Picked', confirm_packed: 'Packing',
+        send_to_qc: 'Quality Check', qc_pass: 'Ready to Dispatch', qc_fail: 'Rework Required', dispatch: 'Dispatched',
+      };
+      await ordersApi.transitionOrder(order.id, targetByAction[action.action]);
+      await loadOrder(order.id, true);
+      showToast(`${action.label} successful.`, 'success');
+    } catch (error) {
+      showToast(`Transition not allowed: ${getActionErrorMessage(error, 'The order cannot move to the next stage.')}`, 'error');
+    } finally { setIsTransitioning(null); }
   };
 
   const handleExceptionSubmit = async (payload: EventPayload) => {
@@ -122,11 +164,11 @@ export function OrderDetail() {
       setDecisionResult(result);
       // Reload order to get updated state
       if (order) {
-        await loadOrder(order.id);
+        await loadOrder(order.id, true);
       }
     } catch (err) {
       console.error('Error submitting exception:', err);
-      setActionError('Failed to submit exception report. Please try again.');
+      setActionError(getActionErrorMessage(err, 'Failed to submit exception report. Please try again.'));
       setTimeout(() => setActionError(null), 5000);
       throw err;
     }
@@ -135,6 +177,8 @@ export function OrderDetail() {
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
   };
+
+  const relevantInventory = inventory.filter(item => order?.items.some(orderItem => orderItem.sku_id === item.sku_id));
 
   if (loading) {
     return (
@@ -163,17 +207,27 @@ export function OrderDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate('/orders')}
-          className="p-2 hover:bg-zinc-200 rounded-md transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-zinc-900 font-mono">{order.order_code}</h1>
-          <p className="text-sm text-zinc-600 mt-1">{order.customer_name}</p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/orders')}
+            className="p-2 hover:bg-zinc-200 rounded-md transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-zinc-900 font-mono">{order.order_code}</h1>
+            <p className="text-sm text-zinc-600 mt-1">{order.customer_name}</p>
+          </div>
         </div>
+        <button
+          onClick={() => void loadOrder(order.id, true)}
+          disabled={isSyncing || isAllocating}
+          className="inline-flex items-center gap-2 rounded-md bg-zinc-200 px-3 py-2 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-300 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+          {isSyncing ? 'Syncing...' : 'Sync current state'}
+        </button>
       </div>
 
       {/* Action Error Alert */}
@@ -184,11 +238,11 @@ export function OrderDetail() {
             {priorityRequired && (
               <button
                 onClick={handlePrioritize}
-                disabled={isPrioritizing}
+                disabled={isPrioritizing || isAllocating || terminal || Boolean(order.priority_label)}
                 className="mt-3 inline-flex items-center gap-2 px-3 py-2 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50"
               >
                 <Play className="w-4 h-4" />
-                {isPrioritizing ? 'Running...' : 'Run Priority Check'}
+                {isPrioritizing ? 'Running...' : order.priority_label ? 'Priority Calculated' : 'Run Priority Check'}
               </button>
             )}
           </CardContent>
@@ -334,19 +388,42 @@ export function OrderDetail() {
               </button>
               <button
                 onClick={handleAllocate}
-                disabled={isAllocating}
+                disabled={isAllocating || isPrioritizing || terminal || !order.priority_score || ['Allocated', 'Ready to Pick', 'Picking', 'Picked', 'Packing', 'Quality Check', 'Ready to Dispatch', 'Dispatched'].includes(order.status)}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <CheckCircle className="w-4 h-4" />
                 {isAllocating ? 'Running...' : 'Run Allocation'}
               </button>
+              {(STATUS_ACTIONS[order.status] || []).map(action => (
+                <button key={action.action} onClick={() => void handleTransition(action)} disabled={Boolean(isTransitioning) || isAllocating || isPrioritizing} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-zinc-900 text-white rounded-md hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  {isTransitioning === action.action && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isTransitioning === action.action ? 'Processing...' : action.label}
+                </button>
+              ))}
               <button
                 onClick={() => setIsExceptionModalOpen(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors"
+                disabled={Boolean(terminal)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <AlertTriangle className="w-4 h-4" />
                 Report Issue
               </button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Current inventory allocation</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {relevantInventory.length === 0 ? (
+                <p className="text-sm text-zinc-500">No inventory records found for this order&apos;s SKUs.</p>
+              ) : relevantInventory.map(item => (
+                <div key={item.sku_id} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="font-mono text-zinc-700">{item.sku_code}</span>
+                  <span className="text-right text-zinc-600">Allocated {item.allocated} · Available {item.available_stock}</span>
+                </div>
+              ))}
             </CardContent>
           </Card>
 
@@ -387,6 +464,7 @@ export function OrderDetail() {
         onSubmit={handleExceptionSubmit}
         defaultOrderId={order?.id}
       />
+      {toasts.map(toast => <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => removeToast(toast.id)} />)}
     </div>
   );
 }

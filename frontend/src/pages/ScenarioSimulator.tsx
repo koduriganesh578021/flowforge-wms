@@ -13,6 +13,7 @@ export function ScenarioSimulator() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { toasts, showToast, removeToast } = useToast();
 
   // Form states for each simulator action
@@ -40,6 +41,7 @@ export function ScenarioSimulator() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [inventoryData, ordersData] = await Promise.all([
         inventoryApi.getInventory(),
         ordersApi.getOrders(),
@@ -48,7 +50,9 @@ export function ScenarioSimulator() {
       setOrders(ordersData);
     } catch (error) {
       console.error('Error loading simulator data:', error);
-      showToast('Failed to load inventory and orders data', 'error');
+      const message = 'Unable to load simulator data. Check that the backend is running and try again.';
+      setLoadError(message);
+      showToast(message, 'error');
     } finally {
       setLoading(false);
     }
@@ -95,7 +99,7 @@ export function ScenarioSimulator() {
       await simulatorApi.updateCount({
         sku_id: parseInt(countForm.sku_id),
         location_id: parseInt(countForm.location_id),
-        new_count: parseInt(countForm.new_count),
+        new_quantity: parseInt(countForm.new_count),
       });
       showToast('Cycle count updated successfully', 'success');
       setCountForm({ sku_id: '', location_id: '', new_count: '' });
@@ -132,14 +136,6 @@ export function ScenarioSimulator() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center text-zinc-500">
-        Loading simulator data...
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -157,6 +153,19 @@ export function ScenarioSimulator() {
           Refresh Data
         </Button>
       </div>
+
+      {loadError && (
+        <div className="flex items-center justify-between gap-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          <span>{loadError}</span>
+          <Button variant="secondary" onClick={() => loadData()} disabled={loading}>
+            Try Again
+          </Button>
+        </div>
+      )}
+
+      {loading && !loadError && (
+        <p className="text-sm text-zinc-500">Loading simulator data...</p>
+      )}
 
       {/* Action Cards Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

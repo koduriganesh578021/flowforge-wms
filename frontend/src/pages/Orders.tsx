@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ordersApi } from '../api/orders';
+import { SIMULATION_DATA_CHANGED_EVENT } from '../api/simulation';
 import type { Order } from '../types';
 import { Badge } from '../components/Badge';
 import { Card, CardContent } from '../components/ui/Card';
@@ -28,6 +29,12 @@ export function Orders() {
 
   useEffect(() => {
     loadOrders();
+  }, [loadOrders]);
+
+  useEffect(() => {
+    const refresh = () => { void loadOrders(); };
+    window.addEventListener(SIMULATION_DATA_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(SIMULATION_DATA_CHANGED_EVENT, refresh);
   }, [loadOrders]);
 
   const getPriorityBadge = (priorityLabel: string | null, priorityScore: number | null) => {

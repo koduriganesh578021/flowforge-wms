@@ -89,7 +89,7 @@ def _assessment(product: Product, demand: int) -> ReorderAssessment:
     on_hand = sum(record.on_hand for record in usable_bins)
     allocated = sum(record.allocated for record in usable_bins)
     damaged = sum(record.damaged for record in usable_bins)
-    available = on_hand - allocated - damaged
+    available = max(0, on_hand - allocated - damaged)
     reorder_point = product.reorder_point
     if reorder_point is None or reorder_point < 0:
         issue = "Reorder point is missing or negative; replenishment recommendation requires data correction."

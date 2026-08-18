@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -51,11 +52,19 @@ def update_count(request: UpdateCountRequest, db: Session = Depends(get_db)) -> 
     if inventory is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inventory record not found")
 
-    decision = process_event({
-        "event_type": "INVENTORY_DISCREPANCY", "sku_id": request.sku_id,
-        "location_id": request.location_id, "new_quantity": request.new_quantity,
-        "reported_by": "simulator",
-    }, db)
+    try:
+        decision = process_event({
+            "event_type": "INVENTORY_DISCREPANCY", "sku_id": request.sku_id,
+            "location_id": request.location_id, "new_quantity": request.new_quantity,
+            "reported_by": "simulator",
+        }, db, commit=False)
+        db.commit()
+    except (ValueError, SQLAlchemyError) as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cycle count correction could not be saved: {exc}",
+        ) from exc
     db.refresh(inventory)
     return {"inventory": _inventory_response(inventory), "decision": decision}
 
@@ -102,5 +111,7 @@ def _inventory_response(inventory: Inventory) -> dict:
     return {
         "id": inventory.id, "sku_id": inventory.sku_id, "location_id": inventory.location_id,
         "on_hand": inventory.on_hand, "allocated": inventory.allocated, "picked": inventory.picked,
-        "damaged": inventory.damaged, "verification_status": inventory.verification_status.value,
+        "damaged": inventory.damaged,
+        "available": max(0, inventory.on_hand - inventory.allocated - inventory.damaged),
+        "verification_status": inventory.verification_status.value,
     }

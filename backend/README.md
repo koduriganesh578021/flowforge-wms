@@ -66,3 +66,6 @@ The exception seed is idempotent and can be rerun safely.
 
 - SQLite file path: `backend/flowforge.db`
 - Tables are created automatically at startup for this local MVP.
+- Simulation endpoint: `POST /simulate/event` with `NEW_URGENT_ORDER`,
+  `ITEM_DAMAGED`, `ITEM_MISSING`, or `QC_FAILURE`. It coordinates the existing
+  priority and event engines and returns a before/after decision summary.

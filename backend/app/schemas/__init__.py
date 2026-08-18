@@ -1,5 +1,7 @@
 from app.schemas.common import HealthResponse
 from app.schemas.orders import AllocateResponse, OrderDetail, OrderListItem, PrioritizeResponse
+from app.schemas.simulation import SimulateEventRequest
+from app.schemas.dashboard import CommandCenterResponse
 from app.schemas.entities import (
     DecisionRead,
     EventRead,
@@ -17,6 +19,8 @@ __all__ = [
     "OrderDetail",
     "PrioritizeResponse",
     "AllocateResponse",
+    "SimulateEventRequest",
+    "CommandCenterResponse",
     "ProductRead",
     "LocationRead",
     "InventoryRead",

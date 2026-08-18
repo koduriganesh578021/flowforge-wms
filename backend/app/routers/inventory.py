@@ -30,7 +30,7 @@ def get_inventory_sku(sku_id: int, db: Session = Depends(get_db)) -> dict:
         {
             "location_id": record.location_id, "location_code": record.location.location_code,
             "on_hand": record.on_hand, "allocated": record.allocated, "damaged": record.damaged,
-            "available_stock": 0 if record.verification_status.value == "quarantined" else record.on_hand - record.allocated - record.damaged,
+            "available_stock": 0 if record.verification_status.value == "quarantined" else max(0, record.on_hand - record.allocated - record.damaged),
             "verification_status": record.verification_status.value, "confidence_score": record.confidence_score,
             "last_verified_at": record.last_verified_at,
         }

@@ -73,6 +73,7 @@ class DecisionStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     APPLIED = "applied"
+    RESOLVED = "resolved"
 
 
 class InventoryVerificationStatus(str, Enum):

@@ -19,10 +19,21 @@ from app.models.enums import (
 )
 
 
-def process_event(event: Mapping[str, Any] | None, db: Session) -> dict[str, Any]:
+class DuplicateEventError(ValueError):
+    """Raised when the same warehouse fact is submitted more than once."""
+
+
+def process_event(
+    event: Mapping[str, Any] | None,
+    db: Session,
+    *,
+    commit: bool = True,
+) -> dict[str, Any]:
     payload = dict(event or {})
     raw_event_type = payload.get("event_type") or payload.get("type")
     event_type = _normalize_event_type(raw_event_type)
+    if _duplicate_event_exists(payload, event_type, db):
+        raise DuplicateEventError("An equivalent event has already been recorded for this warehouse entity.")
 
     if event_type == EventType.ITEM_DAMAGED:
         result = _handle_item_damaged(payload, db)
@@ -35,8 +46,24 @@ def process_event(event: Mapping[str, Any] | None, db: Session) -> dict[str, Any
     else:
         raise ValueError(f"Unsupported event type: {raw_event_type!r}")
 
-    db.commit()
+    if commit:
+        db.commit()
     return result
+
+
+def _duplicate_event_exists(payload: Mapping[str, Any], event_type: EventType, db: Session) -> bool:
+    """Use the domain entity tuple as a lightweight idempotency key."""
+    sku_id = _coerce_int(payload.get("sku_id"))
+    location_id = _coerce_int(payload.get("location_id") or payload.get("bin_id"))
+    order_id = _coerce_int(payload.get("order_id"))
+    quantity = _coerce_int(payload.get("quantity") or payload.get("quantity_damaged") or payload.get("quantity_missing"))
+    if sku_id is None and order_id is None:
+        return False
+    return db.scalar(select(Event.id).where(
+        Event.event_type == event_type, Event.sku_id == sku_id,
+        Event.location_id == location_id, Event.order_id == order_id,
+        Event.quantity == quantity,
+    ).limit(1)) is not None
 
 
 def _handle_item_damaged(event: Mapping[str, Any], db: Session) -> dict[str, Any]:

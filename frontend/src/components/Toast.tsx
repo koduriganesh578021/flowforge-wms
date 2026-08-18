@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { cn } from '../lib/utils';
 import { X, CheckCircle, AlertCircle } from 'lucide-react';
 
@@ -61,14 +61,14 @@ export function Toast({ message, type, onClose }: ToastProps) {
 export function useToast() {
   const [toasts, setToasts] = useState<Array<{ id: number; message: string; type: ToastType }>>([]);
 
-  const showToast = (message: string, type: ToastType = 'info') => {
+  const showToast = useCallback((message: string, type: ToastType = 'info') => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
-  };
+  }, []);
 
-  const removeToast = (id: number) => {
+  const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  };
+  }, []);
 
   return {
     toasts,

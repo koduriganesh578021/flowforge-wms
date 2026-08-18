@@ -2,7 +2,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/Badge';
+import { Button } from '../components/ui/Button';
+import { Modal } from '../components/ui/Modal';
 import { eventsApi } from '../api/events';
+import { SIMULATION_DATA_CHANGED_EVENT } from '../api/simulation';
 import type { ExceptionEvent, DecisionMode } from '../types';
 
 export function Exceptions() {
@@ -10,6 +13,10 @@ export function Exceptions() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<DecisionMode | 'ALL'>('ALL');
   const [error, setError] = useState<string | null>(null);
+  const [selectedException, setSelectedException] = useState<ExceptionEvent | null>(null);
+  const [resolutionNote, setResolutionNote] = useState('');
+  const [isResolving, setIsResolving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadExceptions = useCallback(async () => {
     try {
@@ -29,6 +36,12 @@ export function Exceptions() {
     loadExceptions();
   }, [loadExceptions]);
 
+  useEffect(() => {
+    const refresh = () => { void loadExceptions(); };
+    window.addEventListener(SIMULATION_DATA_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(SIMULATION_DATA_CHANGED_EVENT, refresh);
+  }, [loadExceptions]);
+
   const filteredExceptions = exceptions.filter(exc => {
     if (filter === 'ALL') return true;
     return exc.decision_mode === filter;
@@ -43,7 +56,36 @@ export function Exceptions() {
       case 'ITEM_DAMAGED': return 'Item Damaged';
       case 'ITEM_MISSING': return 'Item Missing';
       case 'QC_FAILED': return 'QC Failed';
+      case 'INVENTORY_DISCREPANCY': return 'Inventory Discrepancy';
       default: return eventType;
+    }
+  };
+
+  const closeResolutionModal = () => {
+    if (!isResolving) {
+      setSelectedException(null);
+      setResolutionNote('');
+    }
+  };
+
+  const handleResolve = async () => {
+    if (!selectedException) return;
+
+    try {
+      setIsResolving(true);
+      setActionError(null);
+      const resolved = await eventsApi.resolveException(selectedException.id, {
+        actor: 'operator',
+        note: resolutionNote.trim() || undefined,
+      });
+      setExceptions(current => current.map(item => item.id === resolved.id ? resolved : item));
+      setSelectedException(null);
+      setResolutionNote('');
+    } catch (err) {
+      console.error('Error resolving exception:', err);
+      setActionError('Unable to resolve this exception. Please try again.');
+    } finally {
+      setIsResolving(false);
     }
   };
 
@@ -53,6 +95,12 @@ export function Exceptions() {
         <h1 className="text-2xl font-bold text-zinc-900">Exceptions</h1>
         <p className="text-sm text-zinc-600 mt-1">Decision center and exception management</p>
       </div>
+
+      {actionError && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          {actionError}
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
@@ -182,11 +230,62 @@ export function Exceptions() {
                     <p className="text-sm text-zinc-700">{exception.notes}</p>
                   </div>
                 )}
+
+                {exception.resolution_note && (
+                  <div className="pt-2">
+                    <p className="text-zinc-600 mb-1 text-sm">Resolution Note</p>
+                    <p className="text-sm text-zinc-700">{exception.resolution_note}</p>
+                  </div>
+                )}
+
+                {exception.status.toLowerCase() !== 'resolved' && (
+                  <div className="flex justify-end pt-3 border-t">
+                    <Button variant="primary" onClick={() => setSelectedException(exception)}>
+                      Resolve Exception
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <Modal
+        isOpen={selectedException !== null}
+        onClose={closeResolutionModal}
+        title={selectedException ? `Resolve Exception #${selectedException.id}` : 'Resolve Exception'}
+      >
+        {selectedException && (
+          <div className="space-y-4">
+            <p className="text-sm text-zinc-700">
+              This marks the exception as resolved. Cycle-count discrepancies will be verified, and blocked order workflow resumes when no other exception remains open.
+            </p>
+            <div>
+              <label htmlFor="resolution-note" className="block text-sm font-medium text-zinc-700 mb-1">
+                Resolution note (optional)
+              </label>
+              <textarea
+                id="resolution-note"
+                value={resolutionNote}
+                onChange={(event) => setResolutionNote(event.target.value)}
+                maxLength={500}
+                rows={3}
+                className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Describe the corrective action taken"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={closeResolutionModal} disabled={isResolving}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleResolve} disabled={isResolving}>
+                {isResolving ? 'Resolving...' : 'Resolve Exception'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

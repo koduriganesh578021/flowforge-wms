@@ -9,7 +9,7 @@ export interface DamageStockRequest {
 export interface UpdateCountRequest {
   sku_id: number;
   location_id: number;
-  new_count: number;
+  new_quantity: number;
 }
 
 export interface FailQcRequest {
@@ -24,6 +24,7 @@ export interface SimulatorResponse {
 }
 
 export const simulatorApi = {
+  // These paths match the FastAPI router prefix: /api/simulator.
   async damageStock(request: DamageStockRequest): Promise<SimulatorResponse> {
     const response = await apiClient.post<SimulatorResponse>('/api/simulator/damage-stock', request);
     return response.data;
